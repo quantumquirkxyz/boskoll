@@ -95,3 +95,48 @@ def test_register_commands_registers_in_place() -> None:
     group = click.Group()
     register_commands(group)
     assert EXPECTED_SUBCOMMANDS <= set(group.commands)
+
+
+@pytest.mark.parametrize(
+    ("subcommand", "option_args", "expected"),
+    [
+        ("agent", ["--describe", "security"], "Agent: security"),
+        ("chat", ["--model", "ollama/llama3.1"], "Using model: ollama/llama3.1"),
+        ("collab", ["--channel", "backend"], "Channel: backend"),
+        ("config", ["--get", "model"], "model ="),
+        ("plugin", ["--install", "security-scan"], "Installing plugin: security-scan"),
+        ("sandbox", ["--file", "scripts/check.py"], "Running scripts/check.py"),
+        ("update", ["--apply"], "Applying update..."),
+        ("workflow", ["--name", "release"], "Workflow: release"),
+    ],
+)
+def test_subcommand_options_execute(
+    runner: click.testing.CliRunner,
+    subcommand: str,
+    option_args: list[str],
+    expected: str,
+) -> None:
+    """Each subcommand's documented option actually runs."""
+    result = invoke_and_assert_ok(runner, [subcommand, *option_args])
+    assert expected in result.output
+
+
+def test_update_default_action_is_check_not_apply(
+    runner: click.testing.CliRunner,
+) -> None:
+    """Bare `boskoll update` reports a check; it does not apply."""
+    result = invoke_and_assert_ok(runner, ["update"])
+    assert "Check:" in result.output
+    assert "Applying update..." not in result.output
+
+
+def test_update_apply_still_works(runner: click.testing.CliRunner) -> None:
+    result = invoke_and_assert_ok(runner, ["update", "--apply"])
+    assert "Applying update..." in result.output
+
+
+def test_update_has_no_dead_check_flag(runner: click.testing.CliRunner) -> None:
+    """The removed dead `--check` flag is no longer accepted."""
+    result = runner.invoke(main, ["update", "--check"])
+    assert result.exit_code != 0
+    assert "No such option" in result.output

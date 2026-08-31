@@ -6,6 +6,8 @@ from collections.abc import Callable
 
 import click
 
+from boskoll_cli.commands._help import command
+
 COMMAND_NAME = "chat"
 _GREETER = "Welcome to boskoll chat"
 _PROMPT = "boskoll> "
@@ -49,9 +51,42 @@ def run_chat(
 
 
 def build_command() -> click.Command:
-    @click.command()
-    def chat() -> None:
-        """Start an interactive chat session."""
+    @command(
+        "boskoll chat",
+        "boskoll chat --model ollama/llama3.1",
+        "boskoll chat --system \"you are a senior python reviewer\"",
+        "boskoll",
+    )
+    @click.option(
+        "--model",
+        "model",
+        type=str,
+        default=None,
+        help="Model to use for the session (e.g. ollama/llama3.1).",
+    )
+    @click.option(
+        "--system",
+        "system_prompt",
+        type=str,
+        default=None,
+        help="System prompt that frames the assistant's behaviour.",
+    )
+    def chat(model: str | None, system_prompt: str | None) -> None:
+        """Start an interactive chat session with boskoll.
+
+        Launches a conversational interface where you can ask questions, and
+        prompt boskoll to generate or review code. The session keeps an
+        in-memory history of your prompts, which is echoed back when the
+        session ends. Type ``exit`` or ``quit`` to leave the session.
+
+        Running ``boskoll`` with no subcommand starts chat mode by default.
+        Use ``--model`` to pick a local or cloud model and ``--system`` to
+        frame the assistant with a role or focus.
+        """
+        if model:
+            click.echo(f"Using model: {model}")
+        if system_prompt:
+            click.echo(f"System prompt: {system_prompt}")
         history = run_chat(input_fn=input, output_fn=click.echo)
         if history:
             click.echo("Session history:")
