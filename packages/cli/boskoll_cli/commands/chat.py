@@ -6,6 +6,8 @@ from collections.abc import Callable
 
 import click
 
+from boskoll_cli.commands._help import command
+
 COMMAND_NAME = "chat"
 _GREETER = "Welcome to boskoll chat"
 _PROMPT = "boskoll> "
@@ -49,9 +51,17 @@ def run_chat(
 
 
 def build_command() -> click.Command:
-    @click.command()
+    @command("boskoll chat", "boskoll", "boskoll chat --help")
     def chat() -> None:
-        """Start an interactive chat session."""
+        """Start an interactive chat session with boskoll.
+
+        Launches a conversational interface where you can ask questions, and
+        prompt boskoll to generate or review code. The session keeps an
+        in-memory history of your prompts, which is echoed back when the
+        session ends. Type ``exit`` or ``quit`` to leave the session.
+
+        Running ``boskoll`` with no subcommand starts chat mode by default.
+        """
         history = run_chat(input_fn=input, output_fn=click.echo)
         if history:
             click.echo("Session history:")
