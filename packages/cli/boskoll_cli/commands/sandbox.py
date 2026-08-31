@@ -10,7 +10,7 @@ COMMAND_NAME = "sandbox"
 
 
 def build_command() -> click.Command:
-    @command("boskoll sandbox", "boskoll sandbox --help")
+    @command("boskoll sandbox")
     def sandbox() -> None:
         """Run code in an isolated sandbox.
 

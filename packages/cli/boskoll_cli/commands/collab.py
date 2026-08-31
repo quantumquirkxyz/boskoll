@@ -10,7 +10,7 @@ COMMAND_NAME = "collab"
 
 
 def build_command() -> click.Command:
-    @command("boskoll collab", "boskoll collab --help")
+    @command("boskoll collab")
     def collab() -> None:
         """Start a real-time collaborative session with other developers.
 

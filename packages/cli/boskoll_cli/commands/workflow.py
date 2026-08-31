@@ -10,7 +10,7 @@ COMMAND_NAME = "workflow"
 
 
 def build_command() -> click.Command:
-    @command("boskoll workflow", "boskoll workflow --help")
+    @command("boskoll workflow")
     def workflow() -> None:
         """Run autonomous workflows.
 

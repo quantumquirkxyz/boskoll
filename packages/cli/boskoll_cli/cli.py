@@ -29,8 +29,8 @@ from boskoll_cli.commands._help import HelpGroup, _example_block
 def main(ctx: click.Context) -> None:
     """boskoll — CLI + TUI for software development with AI agents.
 
-    hyper-specialized agents, autonomous workflows, sandbox execution, and a
-    real-time collaborative terminal experience.
+    It provides hyper-specialized agents, autonomous workflows, sandbox
+    execution, and a real-time collaborative terminal experience.
     """
     if ctx.invoked_subcommand is None:
         chat = main.get_command(ctx, "chat")

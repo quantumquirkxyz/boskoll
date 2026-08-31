@@ -10,7 +10,7 @@ COMMAND_NAME = "update"
 
 
 def build_command() -> click.Command:
-    @command("boskoll update", "boskoll update --help")
+    @command("boskoll update")
     def update() -> None:
         """Check for and apply updates to boskoll.
 

@@ -10,7 +10,7 @@ COMMAND_NAME = "agent"
 
 
 def build_command() -> click.Command:
-    @command("boskoll agent", "boskoll agent --help")
+    @command("boskoll agent")
     def agent() -> None:
         """Manage the specialized AI agents bundled with boskoll.
 

@@ -51,7 +51,7 @@ def run_chat(
 
 
 def build_command() -> click.Command:
-    @command("boskoll chat", "boskoll", "boskoll chat --help")
+    @command("boskoll chat", "boskoll")
     def chat() -> None:
         """Start an interactive chat session with boskoll.
 

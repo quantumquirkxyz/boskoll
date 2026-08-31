@@ -10,7 +10,7 @@ COMMAND_NAME = "config"
 
 
 def build_command() -> click.Command:
-    @command("boskoll config", "boskoll config --help")
+    @command("boskoll config")
     def config() -> None:
         """Show the current boskoll configuration.
 

@@ -10,7 +10,7 @@ COMMAND_NAME = "plugin"
 
 
 def build_command() -> click.Command:
-    @command("boskoll plugin", "boskoll plugin --help")
+    @command("boskoll plugin")
     def plugin() -> None:
         """Manage boskoll plugins.
 

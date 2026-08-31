@@ -44,7 +44,7 @@ class HelpGroup(HelpCommandBase, click.Group):
     """A :class:`click.Group` that renders its epilog examples verbatim."""
 
 
-def command(*examples: str, **kwargs: object) -> Callable[[Callable[..., object]], HelpCommand]:
+def command(*examples: str) -> Callable[[Callable[..., object]], HelpCommand]:
     """Build a :class:`HelpCommand` factory carrying the given usage examples.
 
     Mirrors :func:`click.command` (including deriving ``help`` from the
@@ -52,16 +52,17 @@ def command(*examples: str, **kwargs: object) -> Callable[[Callable[..., object]
     block built from ``examples``. Use it inside each subcommand module's
     ``build_command()``::
 
-        @command("boskoll agent", "boskoll agent --help")
+        @command("boskoll agent")
         def agent() -> None:
             ...
     """
 
     def decorate(func: Callable[..., object]) -> HelpCommand:
-        attrs = dict(kwargs)
-        if attrs.get("help") is None:
-            attrs["help"] = func.__doc__
-        attrs.setdefault("epilog", _example_block(*examples))
-        return HelpCommand(func.__name__, **attrs, callback=func)  # type: ignore[arg-type]
+        return HelpCommand(
+            func.__name__,
+            help=func.__doc__,
+            epilog=_example_block(*examples),
+            callback=func,
+        )
 
     return decorate
