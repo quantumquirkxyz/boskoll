@@ -95,3 +95,27 @@ def test_register_commands_registers_in_place() -> None:
     group = click.Group()
     register_commands(group)
     assert EXPECTED_SUBCOMMANDS <= set(group.commands)
+
+
+@pytest.mark.parametrize(
+    ("subcommand", "option_args", "expected"),
+    [
+        ("agent", ["--describe", "security"], "Agent: security"),
+        ("chat", ["--model", "ollama/llama3.1"], "Using model: ollama/llama3.1"),
+        ("collab", ["--channel", "backend"], "Channel: backend"),
+        ("config", ["--get", "model"], "model ="),
+        ("plugin", ["--install", "security-scan"], "Installing plugin: security-scan"),
+        ("sandbox", ["--file", "scripts/check.py"], "Running scripts/check.py"),
+        ("update", ["--apply"], "Applying update..."),
+        ("workflow", ["--name", "release"], "Workflow: release"),
+    ],
+)
+def test_subcommand_options_execute(
+    runner: click.testing.CliRunner,
+    subcommand: str,
+    option_args: list[str],
+    expected: str,
+) -> None:
+    """Each subcommand's documented option actually runs."""
+    result = invoke_and_assert_ok(runner, [subcommand, *option_args])
+    assert expected in result.output

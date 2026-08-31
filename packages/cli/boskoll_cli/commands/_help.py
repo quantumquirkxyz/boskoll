@@ -58,11 +58,15 @@ def command(*examples: str) -> Callable[[Callable[..., object]], HelpCommand]:
     """
 
     def decorate(func: Callable[..., object]) -> HelpCommand:
+        click_params: list[click.Parameter] = list(
+            getattr(func, "__click_params__", None) or []
+        )
         return HelpCommand(
             func.__name__,
             help=func.__doc__,
             epilog=_example_block(*examples),
             callback=func,
+            params=click_params,
         )
 
     return decorate

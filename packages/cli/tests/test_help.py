@@ -94,6 +94,55 @@ def test_subcommand_examples_formatted_as_block(
     )
 
 
+# ── Options are wired and examples show distinct use cases ──────────────────
+
+
+@pytest.mark.parametrize("subcommand", sorted(EXPECTED_SUBCOMMANDS))
+def test_subcommand_has_at_least_one_option(
+    runner: click.testing.CliRunner, subcommand: str
+) -> None:
+    """Spec criterion 2: each command carries real options to demonstrate."""
+    result = invoke_help(runner, [subcommand])
+    assert "--help" in result.output
+
+
+@pytest.mark.parametrize("subcommand", sorted(EXPECTED_SUBCOMMANDS))
+def test_examples_include_option_use_case(
+    runner: click.testing.CliRunner, subcommand: str
+) -> None:
+    """Examples show a distinct use case beyond the bare invocation."""
+    result = invoke_help(runner, [subcommand])
+    block = result.output.split(EXAMPLES_HEADING, 1)[1]
+    example_lines = [
+        line for line in block.splitlines() if line.strip().startswith("boskoll")
+    ]
+    assert any("--" in line for line in example_lines), (
+        f"{subcommand} should show at least one option-enabled use case"
+    )
+
+
+def test_chat_options_render() -> None:
+    """Chat's --model and --system options appear in help."""
+    runner = click.testing.CliRunner()
+    result = invoke_help(runner, ["chat"])
+    assert "--model" in result.output
+    assert "--system" in result.output
+
+
+def test_sandbox_options_render() -> None:
+    runner = click.testing.CliRunner()
+    result = invoke_help(runner, ["sandbox"])
+    assert "--file" in result.output
+    assert "--runtime" in result.output
+
+
+def test_workflow_options_render() -> None:
+    runner = click.testing.CliRunner()
+    result = invoke_help(runner, ["workflow"])
+    assert "--name" in result.output
+    assert "--auto" in result.output
+
+
 def test_command_classes_render_epilog_verbatim() -> None:
     """HelpCommand/HelpGroup keep examples on their own lines (no re-wrap)."""
     for module_name in discover_command_modules():
