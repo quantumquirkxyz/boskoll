@@ -7,9 +7,7 @@ import click.testing
 import pytest
 
 from boskoll_cli import main
-from boskoll_cli.commands.chat import run_chat
-
-CHAT_GREETER = "Welcome to boskoll chat"
+from boskoll_cli.commands.chat import _GREETER, run_chat
 
 
 @pytest.fixture
@@ -26,12 +24,12 @@ class TestChatCLIRouting:
     def test_no_args_launches_chat(self, runner: click.testing.CliRunner) -> None:
         result = runner.invoke(main, [])
         assert result.exit_code == 0
-        assert CHAT_GREETER in result.output
+        assert _GREETER in result.output
 
     def test_chat_subcommand_launches_chat(self, runner: click.testing.CliRunner) -> None:
         result = runner.invoke(main, ["chat"])
         assert result.exit_code == 0
-        assert CHAT_GREETER in result.output
+        assert _GREETER in result.output
 
     def test_no_args_exit_status_is_zero(self, runner: click.testing.CliRunner) -> None:
         result = runner.invoke(main, [])
@@ -41,7 +39,17 @@ class TestChatCLIRouting:
         self, runner: click.testing.CliRunner
     ) -> None:
         result = runner.invoke(main, ["chat"])
-        assert CHAT_GREETER in result.output
+        assert _GREETER in result.output
+
+    def test_live_chat_session_surfaces_history(
+        self, runner: click.testing.CliRunner
+    ) -> None:
+        result = runner.invoke(main, ["chat"], input="hello boskoll\nworld\nexit\n")
+        assert result.exit_code == 0
+        assert _GREETER in result.output
+        assert "Session history" in result.output
+        assert "hello boskoll" in result.output
+        assert "world" in result.output
 
 
 # ── Seam B: chat loop function ────────────────────────────────────────────────
@@ -123,5 +131,5 @@ class TestChatLoop:
             input_fn=lambda: next(prompts),
             output_fn=lines.append,
         )
-        greeter_line = [line for line in lines if CHAT_GREETER in line]
+        greeter_line = [line for line in lines if _GREETER in line]
         assert len(greeter_line) == 1

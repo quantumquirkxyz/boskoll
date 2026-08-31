@@ -44,7 +44,7 @@ def run_chat(
         if text.lower() in _EXIT_KEYWORDS:
             break
         history.append(text)
-        output_fn(f"boskoll> {text}")
+        output_fn(f"{_PROMPT}{text}")
     return history
 
 
@@ -52,9 +52,10 @@ def build_command() -> click.Command:
     @click.command()
     def chat() -> None:
         """Start an interactive chat session."""
-        run_chat(
-            input_fn=input,
-            output_fn=click.echo,
-        )
+        history = run_chat(input_fn=input, output_fn=click.echo)
+        if history:
+            click.echo("Session history:")
+            for prompt in history:
+                click.echo(f"{_PROMPT}{prompt}")
 
     return chat

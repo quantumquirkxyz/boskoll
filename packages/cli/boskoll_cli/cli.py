@@ -5,7 +5,7 @@ from __future__ import annotations
 import click
 
 from boskoll_cli._version import __version__
-from boskoll_cli.commands import load_command_module, register_commands
+from boskoll_cli.commands import register_commands
 
 
 @click.group(invoke_without_command=True)
@@ -14,8 +14,9 @@ from boskoll_cli.commands import load_command_module, register_commands
 def main(ctx: click.Context) -> None:
     """boskoll — CLI + TUI for software development with hyper-specialized AI agents."""
     if ctx.invoked_subcommand is None:
-        _, chat_factory = load_command_module("chat")
-        ctx.invoke(chat_factory())
+        chat = main.get_command(ctx, "chat")
+        if chat is not None:
+            ctx.invoke(chat)
 
 
 register_commands(main)
