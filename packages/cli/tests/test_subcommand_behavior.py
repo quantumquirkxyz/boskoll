@@ -72,6 +72,7 @@ def test_config_get_specific_key(runner: click.testing.CliRunner) -> None:
 def test_config_path_takes_precedence_over_get(runner: click.testing.CliRunner) -> None:
     result = invoke(runner, ["config", "--path", "--get", "model"])
     assert "Config path:" in result.output
+    assert "model =" not in result.output
 
 
 def test_plugin_remove_option(runner: click.testing.CliRunner) -> None:
