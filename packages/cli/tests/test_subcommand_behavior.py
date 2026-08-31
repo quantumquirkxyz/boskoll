@@ -8,31 +8,9 @@ from __future__ import annotations
 
 import click.testing
 import pytest
+from conftest import invoke
 
 from boskoll_cli import main
-
-EXPECTED_SUBCOMMANDS = {
-    "agent",
-    "chat",
-    "collab",
-    "config",
-    "plugin",
-    "sandbox",
-    "update",
-    "workflow",
-}
-
-
-@pytest.fixture
-def runner() -> click.testing.CliRunner:
-    return click.testing.CliRunner()
-
-
-def invoke(runner: click.testing.CliRunner, args: list[str]) -> click.testing.Result:
-    result = runner.invoke(main, args)
-    assert result.exit_code == 0, result.output
-    return result
-
 
 # ── Default (no-option) behavior ─────────────────────────────────────────────
 
