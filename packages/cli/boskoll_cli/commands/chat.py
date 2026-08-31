@@ -11,6 +11,6 @@ def build_command() -> click.Command:
     @click.command()
     def chat() -> None:
         """Start an interactive chat session."""
-        click.echo("Starting chat session...")
+        click.echo("Chat:")
 
     return chat

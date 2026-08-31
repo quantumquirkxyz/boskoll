@@ -5,7 +5,7 @@ from __future__ import annotations
 import click
 
 from boskoll_cli._version import __version__
-from boskoll_cli.commands._registry import register_commands
+from boskoll_cli.commands import register_commands
 
 
 @click.group()

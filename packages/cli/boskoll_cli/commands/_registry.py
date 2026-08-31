@@ -41,9 +41,8 @@ def load_command_module(module_name: str) -> tuple[str, CommandFactory]:
     return name, factory
 
 
-def register_commands(group: click.Group) -> click.Group:
+def register_commands(group: click.Group) -> None:
     """Discover subcommand modules and register them onto ``group`` in place."""
     for module_name in discover_command_modules():
         name, factory = load_command_module(module_name)
         group.add_command(factory(), name=name)
-    return group

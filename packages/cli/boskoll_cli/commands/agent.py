@@ -9,9 +9,8 @@ COMMAND_NAME = "agent"
 
 def build_command() -> click.Command:
     @click.command()
-    @click.argument("action", type=click.Choice(["list", "create", "remove"]))
-    def agent(action: str) -> None:
+    def agent() -> None:
         """Manage specialized agents."""
-        click.echo(f"Agents: {action}")
+        click.echo("Agents:")
 
     return agent

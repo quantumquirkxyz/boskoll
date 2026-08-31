@@ -8,8 +8,11 @@ import pytest
 
 from boskoll_cli import __version__, main
 from boskoll_cli.cli import main as cli_main
-from boskoll_cli.commands import discover_command_modules, register_commands
-from boskoll_cli.commands._registry import load_command_module
+from boskoll_cli.commands import (
+    discover_command_modules,
+    load_command_module,
+    register_commands,
+)
 
 EXPECTED_SUBCOMMANDS = {
     "agent",
@@ -88,8 +91,7 @@ def test_subcommand_help_text_generated(runner: click.testing.CliRunner, subcomm
     assert "--help" in result.output
 
 
-def test_register_commands_returns_same_group() -> None:
+def test_register_commands_registers_in_place() -> None:
     group = click.Group()
-    result = register_commands(group)
-    assert result is group
+    register_commands(group)
     assert EXPECTED_SUBCOMMANDS <= set(group.commands)
