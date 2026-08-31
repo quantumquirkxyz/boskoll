@@ -16,13 +16,16 @@ The `boskoll` command is the main entry point. Without a subcommand it starts an
 boskoll --version
 boskoll chat
 boskoll config
-boskoll init
-boskoll agents
-boskoll status
-boskoll history
-boskoll models
-boskoll plugins
+boskoll agent
+boskoll workflow
+boskoll sandbox
+boskoll plugin
+boskoll collab
+boskoll update
 ```
+
+Subcommands are registered through the auto-discovered command modules under
+`boskoll_cli/commands/`; each module exposes `COMMAND_NAME` and `build_command()`.
 
 ## Development
 
