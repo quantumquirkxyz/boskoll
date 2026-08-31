@@ -2,7 +2,7 @@
 
 import click
 
-from boskoll_cli import __version__
+from boskoll_cli._version import __version__
 
 
 @click.group()
