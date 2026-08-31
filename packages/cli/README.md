@@ -10,7 +10,9 @@ pip install -e packages/cli
 
 ## Usage
 
-The `boskoll` command is the main entry point. Without a subcommand it starts an interactive chat session (foundational — chat mode is implemented in a later ticket).
+The `boskoll` command is the main entry point. Without a subcommand it starts an
+interactive chat session (foundational — prompts receive a stub acknowledgement
+and history is kept for the session).
 
 ```bash
 boskoll --version
