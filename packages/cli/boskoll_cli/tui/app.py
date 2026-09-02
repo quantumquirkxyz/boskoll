@@ -27,7 +27,6 @@ EDITOR_TITLE = "Editor"
 CONTEXT_TITLE = "Context"
 
 MIN_PANEL_WEIGHT = 1
-MAX_PANEL_WEIGHT = 10
 BORDER_THRESHOLD = 3
 
 _WEIGHT_HISTORY = 1
@@ -74,7 +73,6 @@ class BoskollApp(App[None]):
     _dragging: bool = False
     _drag_border: int | None = None
     _drag_start_x: int = 0
-    _drag_start_weights: dict[str, int] | None = None
 
     def __init__(self) -> None:
         super().__init__()
@@ -110,9 +108,6 @@ class BoskollApp(App[None]):
         editor = self.query_one(f"#{EDITOR_ID}")
         horizontal = self.query_one(Horizontal)
 
-        if horizontal is None:
-            return None
-
         if not (horizontal.region.y <= y < horizontal.region.bottom):
             return None
 
@@ -132,7 +127,6 @@ class BoskollApp(App[None]):
             self._dragging = True
             self._drag_border = border
             self._drag_start_x = event.x
-            self._drag_start_weights = self._weights.copy()
             event.prevent_default()
 
     def on_mouse_move(self, event: MouseMove) -> None:
@@ -145,7 +139,6 @@ class BoskollApp(App[None]):
         if self._dragging:
             self._dragging = False
             self._drag_border = None
-            self._drag_start_weights = None
 
     def _apply_drag_delta(self, delta_x: int) -> None:
         history = self.query_one(f"#{HISTORY_ID}")
@@ -167,14 +160,7 @@ class BoskollApp(App[None]):
             new_history_weight = round(
                 new_history_width / total_active_width * total_active_weight
             )
-            new_history_weight = max(
-                MIN_PANEL_WEIGHT,
-                min(new_history_weight, total_active_weight - MIN_PANEL_WEIGHT),
-            )
-            new_editor_weight = total_active_weight - new_history_weight
-
-            self._weights[HISTORY_ID] = new_history_weight
-            self._weights[EDITOR_ID] = new_editor_weight
+            self._set_weight_pair(HISTORY_ID, EDITOR_ID, new_history_weight, total_active_weight)
 
         elif self._drag_border == 1:
             initial_editor_width = editor.region.width
@@ -191,15 +177,22 @@ class BoskollApp(App[None]):
             new_editor_weight = round(
                 new_editor_width / total_active_width * total_active_weight
             )
-            new_editor_weight = max(
-                MIN_PANEL_WEIGHT,
-                min(new_editor_weight, total_active_weight - MIN_PANEL_WEIGHT),
-            )
-            new_context_weight = total_active_weight - new_editor_weight
+            self._set_weight_pair(EDITOR_ID, CONTEXT_ID, new_editor_weight, total_active_weight)
 
-            self._weights[EDITOR_ID] = new_editor_weight
-            self._weights[CONTEXT_ID] = new_context_weight
-
+    def _set_weight_pair(
+        self,
+        first_id: str,
+        second_id: str,
+        new_first_weight: int,
+        total_weight: int,
+    ) -> None:
+        new_first_weight = max(
+            MIN_PANEL_WEIGHT,
+            min(new_first_weight, total_weight - MIN_PANEL_WEIGHT),
+        )
+        new_second_weight = total_weight - new_first_weight
+        self._weights[first_id] = new_first_weight
+        self._weights[second_id] = new_second_weight
         self.apply_weights()
 
     def _get_focused_panel_id(self) -> str | None:
@@ -218,48 +211,34 @@ class BoskollApp(App[None]):
         if panel_id is None:
             return
 
-        weights = self._weights.copy()
         idx = (HISTORY_ID, EDITOR_ID, CONTEXT_ID).index(panel_id)
 
         if idx == 0:
-            neighbor = EDITOR_ID
+            from_id, to_id = HISTORY_ID, EDITOR_ID
         elif idx == 1:
-            neighbor = HISTORY_ID
+            from_id, to_id = EDITOR_ID, HISTORY_ID
         else:
-            neighbor = EDITOR_ID
+            from_id, to_id = CONTEXT_ID, EDITOR_ID
 
-        if (
-            weights[panel_id] > MIN_PANEL_WEIGHT
-            and weights[neighbor] < MAX_PANEL_WEIGHT
-        ):
-            weights[panel_id] -= 1
-            weights[neighbor] += 1
-            self._weights = weights
-            self.apply_weights()
+        total = self._weights[from_id] + self._weights[to_id]
+        self._set_weight_pair(from_id, to_id, self._weights[from_id] - 1, total)
 
     def action_increase_weight(self) -> None:
         panel_id = self._get_focused_panel_id()
         if panel_id is None:
             return
 
-        weights = self._weights.copy()
         idx = (HISTORY_ID, EDITOR_ID, CONTEXT_ID).index(panel_id)
 
         if idx == 0:
-            neighbor = EDITOR_ID
+            from_id, to_id = EDITOR_ID, HISTORY_ID
         elif idx == 1:
-            neighbor = CONTEXT_ID
+            from_id, to_id = CONTEXT_ID, EDITOR_ID
         else:
-            neighbor = EDITOR_ID
+            from_id, to_id = EDITOR_ID, CONTEXT_ID
 
-        if (
-            weights[neighbor] > MIN_PANEL_WEIGHT
-            and weights[panel_id] < MAX_PANEL_WEIGHT
-        ):
-            weights[panel_id] += 1
-            weights[neighbor] -= 1
-            self._weights = weights
-            self.apply_weights()
+        total = self._weights[from_id] + self._weights[to_id]
+        self._set_weight_pair(from_id, to_id, self._weights[from_id] - 1, total)
 
 
 def history_weight() -> int:

@@ -10,17 +10,16 @@ from __future__ import annotations
 import pytest
 from textual.app import App
 from textual.containers import Horizontal
+from textual.events import MouseDown, MouseMove, MouseUp
 from textual.widgets import Footer, Header, Static
 
 from boskoll_cli.tui import (
-    BORDER_THRESHOLD,
     CONTEXT_ID,
     CONTEXT_TITLE,
     EDITOR_ID,
     EDITOR_TITLE,
     HISTORY_ID,
     HISTORY_TITLE,
-    MAX_PANEL_WEIGHT,
     MIN_PANEL_WEIGHT,
     BoskollApp,
     context_weight,
@@ -113,31 +112,20 @@ async def test_panels_are_focusable() -> None:
         assert app.focused == history
 
 
-class _FakeMouseEvent:
-    def __init__(self, button: int, x: int, y: int) -> None:
-        self.button = button
-        self.x = x
-        self.y = y
-
-    def prevent_default(self) -> None:
-        pass
-
-
 async def test_mouse_drag_resizes_panels() -> None:
     app = BoskollApp()
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
 
         history = app.query_one(f"#{HISTORY_ID}")
-        editor = app.query_one(f"#{EDITOR_ID}")
         horizontal = app.query_one(Horizontal)
 
         border_x = history.region.right
         border_y = horizontal.region.y + 1
 
-        app.on_mouse_down(_FakeMouseEvent(button=0, x=border_x, y=border_y))
-        app.on_mouse_move(_FakeMouseEvent(button=0, x=border_x + 10, y=border_y))
-        app.on_mouse_up(_FakeMouseEvent(button=0, x=border_x + 10, y=border_y))
+        app.on_mouse_down(MouseDown(None, border_x, border_y, 0, 0, 0, False, False, False))
+        app.on_mouse_move(MouseMove(None, border_x + 10, border_y, 0, 0, 0, False, False, False))
+        app.on_mouse_up(MouseUp(None, border_x + 10, border_y, 0, 0, 0, False, False, False))
 
         await pilot.pause()
 
@@ -209,15 +197,14 @@ async def test_minimum_panel_size_enforced_mouse() -> None:
         await pilot.pause()
 
         history = app.query_one(f"#{HISTORY_ID}")
-        editor = app.query_one(f"#{EDITOR_ID}")
         horizontal = app.query_one(Horizontal)
 
         border_x = history.region.right
         border_y = horizontal.region.y + 1
 
-        app.on_mouse_down(_FakeMouseEvent(button=0, x=border_x, y=border_y))
-        app.on_mouse_move(_FakeMouseEvent(button=0, x=0, y=border_y))
-        app.on_mouse_up(_FakeMouseEvent(button=0, x=0, y=border_y))
+        app.on_mouse_down(MouseDown(None, border_x, border_y, 0, 0, 0, False, False, False))
+        app.on_mouse_move(MouseMove(None, 0, border_y, 0, 0, 0, False, False, False))
+        app.on_mouse_up(MouseUp(None, 0, border_y, 0, 0, 0, False, False, False))
 
         await pilot.pause()
 
