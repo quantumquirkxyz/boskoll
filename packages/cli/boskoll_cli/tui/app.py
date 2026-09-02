@@ -13,6 +13,8 @@ keyboard shortcuts, with a minimum panel size enforced.
 
 from __future__ import annotations
 
+from enum import Enum
+
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, VerticalScroll
 from textual.events import MouseDown, MouseMove, MouseUp
@@ -28,8 +30,11 @@ CONTEXT_TITLE = "Context"
 
 MIN_PANEL_WEIGHT = 1
 BORDER_THRESHOLD = 3
-RESIZE_BORDER_LEFT = 0
-RESIZE_BORDER_RIGHT = 1
+
+
+class ResizeBorder(Enum):
+    LEFT = 0
+    RIGHT = 1
 
 _WEIGHT_HISTORY = 1
 _WEIGHT_EDITOR = 2
@@ -73,20 +78,13 @@ class BoskollApp(App[None]):
 
     _weights: dict[str, int]
     _dragging: bool = False
-    _drag_border: int | None = None
-    _drag_start_x: int = 0
+    _drag_border: ResizeBorder | None = None
     _last_drag_x: int = 0
 
-    _DECREASE_NEIGHBORS: dict[str, str] = {
-        HISTORY_ID: EDITOR_ID,
-        EDITOR_ID: HISTORY_ID,
-        CONTEXT_ID: EDITOR_ID,
-    }
-
-    _INCREASE_NEIGHBORS: dict[str, str] = {
-        HISTORY_ID: EDITOR_ID,
-        EDITOR_ID: CONTEXT_ID,
-        CONTEXT_ID: EDITOR_ID,
+    _PANEL_NEIGHBORS: dict[str, tuple[str, str]] = {
+        HISTORY_ID: (EDITOR_ID, EDITOR_ID),
+        EDITOR_ID: (CONTEXT_ID, HISTORY_ID),
+        CONTEXT_ID: (EDITOR_ID, EDITOR_ID),
     }
 
     def __init__(self) -> None:
@@ -118,7 +116,7 @@ class BoskollApp(App[None]):
         editor.styles.width = f"{self._weights[EDITOR_ID] / total * 100}%"
         context.styles.width = f"{self._weights[CONTEXT_ID] / total * 100}%"
 
-    def _get_resize_border(self, x: int, y: int) -> int | None:
+    def _get_resize_border(self, x: int, y: int) -> ResizeBorder | None:
         history = self.query_one(f"#{HISTORY_ID}")
         editor = self.query_one(f"#{EDITOR_ID}")
         horizontal = self.query_one(Horizontal)
@@ -127,9 +125,9 @@ class BoskollApp(App[None]):
             return None
 
         if abs(x - history.region.right) <= BORDER_THRESHOLD:
-            return RESIZE_BORDER_LEFT
+            return ResizeBorder.LEFT
         if abs(x - editor.region.right) <= BORDER_THRESHOLD:
-            return RESIZE_BORDER_RIGHT
+            return ResizeBorder.RIGHT
 
         return None
 
@@ -141,7 +139,6 @@ class BoskollApp(App[None]):
         if border is not None:
             self._dragging = True
             self._drag_border = border
-            self._drag_start_x = event.x
             self._last_drag_x = event.x
             event.prevent_default()
 
@@ -159,9 +156,9 @@ class BoskollApp(App[None]):
             self._last_drag_x = 0
 
     def _apply_drag_delta(self, delta_x: int) -> None:
-        if self._drag_border == RESIZE_BORDER_LEFT:
+        if self._drag_border == ResizeBorder.LEFT:
             self._resize_pair(HISTORY_ID, EDITOR_ID, delta_x)
-        elif self._drag_border == RESIZE_BORDER_RIGHT:
+        elif self._drag_border == ResizeBorder.RIGHT:
             self._resize_pair(EDITOR_ID, CONTEXT_ID, delta_x)
 
     def _resize_pair(self, first_id: str, second_id: str, delta_x: int) -> None:
@@ -212,18 +209,18 @@ class BoskollApp(App[None]):
         if panel_id is None:
             return
 
-        neighbor = self._DECREASE_NEIGHBORS[panel_id]
-        total = self._weights[panel_id] + self._weights[neighbor]
-        self._set_weight_pair(panel_id, neighbor, self._weights[panel_id] - 1, total)
+        _, decrease_target = self._PANEL_NEIGHBORS[panel_id]
+        total = self._weights[panel_id] + self._weights[decrease_target]
+        self._set_weight_pair(panel_id, decrease_target, self._weights[panel_id] - 1, total)
 
     def action_increase_weight(self) -> None:
         panel_id = self._get_focused_panel_id()
         if panel_id is None:
             return
 
-        neighbor = self._INCREASE_NEIGHBORS[panel_id]
-        total = self._weights[panel_id] + self._weights[neighbor]
-        self._set_weight_pair(neighbor, panel_id, self._weights[neighbor] - 1, total)
+        increase_source, _ = self._PANEL_NEIGHBORS[panel_id]
+        total = self._weights[panel_id] + self._weights[increase_source]
+        self._set_weight_pair(increase_source, panel_id, self._weights[increase_source] - 1, total)
 
 
 def history_weight() -> int:
