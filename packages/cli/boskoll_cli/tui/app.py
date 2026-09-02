@@ -75,6 +75,7 @@ class BoskollApp(App[None]):
     _dragging: bool = False
     _drag_border: int | None = None
     _drag_start_x: int = 0
+    _last_drag_x: int = 0
 
     _DECREASE_NEIGHBORS: dict[str, str] = {
         HISTORY_ID: EDITOR_ID,
@@ -141,11 +142,13 @@ class BoskollApp(App[None]):
             self._dragging = True
             self._drag_border = border
             self._drag_start_x = event.x
+            self._last_drag_x = event.x
             event.prevent_default()
 
     def on_mouse_move(self, event: MouseMove) -> None:
         if self._dragging and self._drag_border is not None:
-            delta_x = event.x - self._drag_start_x
+            delta_x = event.x - self._last_drag_x
+            self._last_drag_x = event.x
             self._apply_drag_delta(delta_x)
             event.prevent_default()
 
@@ -153,6 +156,7 @@ class BoskollApp(App[None]):
         if self._dragging:
             self._dragging = False
             self._drag_border = None
+            self._last_drag_x = 0
 
     def _apply_drag_delta(self, delta_x: int) -> None:
         if self._drag_border == RESIZE_BORDER_LEFT:

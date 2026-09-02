@@ -134,6 +134,32 @@ async def test_mouse_drag_resizes_panels() -> None:
         assert sum(app._weights.values()) == 4
 
 
+async def test_mouse_drag_is_incremental() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(160, 24)) as pilot:
+        await pilot.pause()
+
+        history = app.query_one(f"#{HISTORY_ID}")
+        horizontal = app.query_one(Horizontal)
+
+        border_x = history.region.right
+        border_y = horizontal.region.y + 1
+
+        app.on_mouse_down(MouseDown(None, border_x, border_y, 0, 0, 0, False, False, False))
+        app.on_mouse_move(MouseMove(None, border_x + 40, border_y, 0, 0, 0, False, False, False))
+        await pilot.pause()
+        weight_after_forward = app._weights[HISTORY_ID]
+
+        app.on_mouse_move(MouseMove(None, border_x, border_y, 0, 0, 0, False, False, False))
+        await pilot.pause()
+        weight_after_backward = app._weights[HISTORY_ID]
+
+        app.on_mouse_up(MouseUp(None, border_x, border_y, 0, 0, 0, False, False, False))
+        await pilot.pause()
+
+        assert weight_after_backward < weight_after_forward
+
+
 async def test_keyboard_decrease_weight() -> None:
     app = BoskollApp()
     async with app.run_test(size=(80, 24)) as pilot:
