@@ -122,15 +122,14 @@ class OllamaAdapter(ModelAdapter):
         """Generate a complete response for ``prompt`` and return it."""
         body = self._build_body(prompt, system, stream=False)
         payload = self._request_json("POST", "/api/generate", body=body)
-        api_error = self._api_error(payload)
-        if api_error:
-            raise OllamaError(api_error)
         return str(payload.get("response", ""))
 
     def stream(self, prompt: str, *, system: str | None = None) -> Iterator[str]:
         """Stream response chunks for ``prompt`` as they are generated."""
         body = self._build_body(prompt, system, stream=True)
         response = self._do_request("POST", "/api/generate", body=body)
+        if response.status >= 400:
+            raise OllamaError(f"HTTP {response.status}")
         for line in response:
             text = line.strip()
             if not text:

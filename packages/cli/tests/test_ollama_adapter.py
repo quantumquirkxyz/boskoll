@@ -419,5 +419,15 @@ class TestOllamaErrorHandling:
         with pytest.raises(OllamaError, match="bad request"):
             list(adapter.stream("hi"))
 
+    def test_stream_raises_on_http_error_status(self) -> None:
+        transport = FakeTransport(
+            responses={
+                ("POST", "/api/generate"): FakeResponse(status=502, body=b"")
+            }
+        )
+        adapter = OllamaAdapter(model="llama3.1", transport=transport)
+        with pytest.raises(OllamaError, match="HTTP 502"):
+            list(adapter.stream("hi"))
+
     def test_error_is_exception_subtype(self) -> None:
         assert issubclass(OllamaError, Exception)
