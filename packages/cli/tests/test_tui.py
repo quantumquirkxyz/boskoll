@@ -22,17 +22,25 @@ from boskoll_cli.tui import (
     EDITOR_ID,
     EDITOR_TITLE,
     HISTORY_ID,
-    HISTORY_TITLE,    MIN_PANEL_WEIGHT,    BoskollApp,
+    HISTORY_TITLE,
+    MIN_PANEL_WEIGHT,
+    BoskollApp,
     EditorContent,
     context_weight,
     editor_weight,
     history_weight,
-
-
-
 )
 
 PANEL_IDS = (HISTORY_ID, EDITOR_ID, CONTEXT_ID)
+
+
+def _rendered_editor_contains(app: BoskollApp, text: str) -> bool:
+    """Whether the app's exported screenshot contains ``text``.
+
+    Asserts against real rendered output (the exported SVG) rather than
+    widget internals or ``render()`` wrapper reprs.
+    """
+    return text in app.export_screenshot()
 
 
 @pytest.mark.parametrize(
@@ -108,30 +116,34 @@ async def test_panels_have_correct_proportions() -> None:
 
 async def test_panel_rendering_is_stable_across_theme_switch() -> None:
     app = BoskollApp(theme=Theme.DARK)
-    async with app.run_test(size=(80, 24)):
-        editor_static_before = app.query_one(f"#{EDITOR_ID}").query_one(Static)
-        editor_render_before = str(editor_static_before.render())
-        assert editor_static_before.boskoll_theme is Theme.DARK
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        editor_content = app.query_one(f"#{EDITOR_ID}").query_one(EditorContent)
+        assert editor_content.boskoll_theme is Theme.DARK
+        screenshot_before = app.export_screenshot()
 
         app.set_theme(Theme.LIGHT)
+        await pilot.pause()
 
-        editor_static_after = app.query_one(f"#{EDITOR_ID}").query_one(Static)
-        editor_render_after = str(editor_static_after.render())
-        assert editor_static_after.boskoll_theme is Theme.LIGHT
+        editor_content = app.query_one(f"#{EDITOR_ID}").query_one(EditorContent)
+        assert editor_content.boskoll_theme is Theme.LIGHT
+        screenshot_after = app.export_screenshot()
 
-        assert "Syntax" in editor_render_after or "def" in editor_render_after
-        assert editor_render_after != editor_render_before
+        assert screenshot_after != screenshot_before
+        assert _rendered_editor_contains(app, "hello_world")
 
 
 async def test_theme_can_be_switched_after_mount() -> None:
     app = BoskollApp(theme=Theme.DARK)
     async with app.run_test(size=(80, 24)):
-        assert app.boskoll_theme is Theme.DARK
+        theme = app.boskoll_theme
+        assert theme is Theme.DARK
         assert app.dark is True
 
         app.set_theme(Theme.LIGHT)
 
-        assert app.boskoll_theme is Theme.LIGHT
+        theme = app.boskoll_theme
+        assert theme is Theme.LIGHT
         assert app.dark is False
 
         editor = app.query_one(f"#{EDITOR_ID}").query_one(EditorContent)
@@ -141,12 +153,14 @@ async def test_theme_can_be_switched_after_mount() -> None:
 async def test_theme_switch_returns_app_to_dark_theme() -> None:
     app = BoskollApp(theme=Theme.LIGHT)
     async with app.run_test(size=(80, 24)):
-        assert app.boskoll_theme is Theme.LIGHT
+        theme = app.boskoll_theme
+        assert theme is Theme.LIGHT
         assert app.dark is False
 
         app.set_theme(Theme.DARK)
 
-        assert app.boskoll_theme is Theme.DARK
+        theme = app.boskoll_theme
+        assert theme is Theme.DARK
         assert app.dark is True
 
 
@@ -165,33 +179,34 @@ async def test_panels_are_arranged_left_to_right() -> None:
 
 async def test_editor_panel_rendering_is_syntax_highlighted() -> None:
     app = BoskollApp()
-    async with app.run_test(size=(80, 24)):
-        editor_static = app.query_one(f"#{EDITOR_ID}").query_one(Static)
-        editor_render = str(editor_static.render())
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        editor_content = app.query_one(f"#{EDITOR_ID}").query_one(EditorContent)
+        assert editor_content.language == "python"
+        assert "hello_world" in editor_content.code
 
-    assert "Syntax" in editor_render or "def" in editor_render
-    assert "hello_world" not in editor_render
+        assert _rendered_editor_contains(app, "hello_world")
 
 
 async def test_panel_rendering_is_stable_after_resize() -> None:
     app = BoskollApp()
-    size = (80, 24)
-    async with app.run_test(size=size) as pilot:
+    async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
 
         editor = app.query_one(f"#{EDITOR_ID}")
         editor_content = editor.query_one(EditorContent)
         assert editor_content.language == "python"
+        code_before = editor_content.code
+        width_before = editor.region.width
 
-        app.set_theme(Theme.LIGHT)
-        app.set_theme(Theme.DARK)
-
+        await pilot.resize_terminal(120, 30)
         await pilot.pause()
 
         editor_content_after = editor.query_one(EditorContent)
         assert editor_content_after.language == "python"
-        assert editor_content_after.code == editor_content.code
-
+        assert editor_content_after.code == code_before
+        assert editor.region.width > width_before
+        assert _rendered_editor_contains(app, "hello_world")
 
 
 async def test_app_composes_header_and_footer() -> None:
@@ -362,7 +377,8 @@ async def test_panel_resizing_does_not_destroy_content() -> None:
 
         focused = app.focused
         assert focused is not None
-        assert focused.id == EDITOR_ID or focused.id == HISTORY_ID
+        # Mouse drags never change focus; the app mounts with history focused.
+        assert focused.id == HISTORY_ID
 
 
 async def test_tab_navigation() -> None:
