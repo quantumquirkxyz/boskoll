@@ -7,7 +7,7 @@ against the real Ollama API contract without a running Ollama instance.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -39,7 +39,7 @@ class FakeTransport:
     calls: list[tuple[str, str, Any]] = field(default_factory=list)
 
     def request(
-        self, method: str, path: str, *, body: dict[str, Any] | None = None
+        self, method: str, path: str, *, body: Mapping[str, Any] | None = None
     ) -> FakeResponse:
         self.calls.append((method, path, body))
         return self.responses[(method, path)]
@@ -52,7 +52,7 @@ class RaisingTransport:
     error: Exception
 
     def request(
-        self, method: str, path: str, *, body: dict[str, Any] | None = None
+        self, method: str, path: str, *, body: Mapping[str, Any] | None = None
     ) -> Any:  # pragma: no cover - never returns
         raise self.error
 
