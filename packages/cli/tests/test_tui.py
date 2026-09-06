@@ -354,7 +354,7 @@ async def test_enter_does_not_switch_focus_when_focused_on_input() -> None:
         assert isinstance(app.focused, Input)
 
 
-async def test_enter_keeps_panel_focus_when_focused_on_non_input_panel_child() -> None:
+async def test_enter_moves_focus_to_editor_panel_from_non_input_panel_child() -> None:
     app = BoskollApp()
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()

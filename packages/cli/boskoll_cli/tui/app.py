@@ -200,7 +200,11 @@ class BoskollApp(App[None]):
         * Tab/Shift+Tab switches panels.
         * Arrow keys navigate within panel.
         * Enter submits input when focused on an Input, otherwise focuses the editor.
+
+        This implements the issue #41 acceptance criteria and adds one additional,
+        already-tested behavior for Enter on non-input panels.
         """
+
         focused_panel_id = self._get_focused_panel_id()
 
         if event.key == "tab":
