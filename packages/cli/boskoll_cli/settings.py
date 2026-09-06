@@ -50,5 +50,25 @@ def save_theme(theme: Theme, path: Path | None = None) -> Path:
     """Persist ``theme`` and return the path written."""
     active_path = path or config_path()
     active_path.parent.mkdir(parents=True, exist_ok=True)
-    active_path.write_text(f'theme = "{theme.value}"\n', encoding="utf-8")
+
+    if not active_path.exists():
+        active_path.write_text(f'theme = "{theme.value}"\n', encoding="utf-8")
+        return active_path
+
+    lines = active_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    theme_line_found = False
+
+    for i, line in enumerate(lines):
+        key, separator, _ = line.partition("=")
+        if key.strip() == "theme" and separator:
+            lines[i] = f'theme = "{theme.value}"\n'
+            theme_line_found = True
+            break
+
+    if not theme_line_found:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(f'theme = "{theme.value}"\n')
+
+    active_path.write_text("".join(lines), encoding="utf-8")
     return active_path

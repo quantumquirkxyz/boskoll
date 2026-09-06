@@ -88,6 +88,21 @@ def test_config_theme_can_be_set(
     assert "theme = light" in invoke(runner, ["config", "--get", "theme"]).output
 
 
+def test_config_theme_preserves_other_settings(
+    runner: click.testing.CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('model = "gpt-4o"\napi_key = "secret"\n', encoding="utf-8")
+    monkeypatch.setenv("BOSKOLL_CONFIG_PATH", str(config_file))
+
+    invoke(runner, ["config", "--theme", "light"])
+
+    content = config_file.read_text(encoding="utf-8")
+    assert 'model = "gpt-4o"' in content
+    assert 'api_key = "secret"' in content
+    assert 'theme = "light"' in content
+
+
 def test_config_path_takes_precedence_over_get(runner: click.testing.CliRunner) -> None:
     result = invoke(runner, ["config", "--path", "--get", "model"])
     assert "Config path:" in result.output
