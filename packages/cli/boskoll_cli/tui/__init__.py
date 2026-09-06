@@ -1,12 +1,14 @@
 """Textual TUI package for boskoll."""
 
 from boskoll_cli.tui.app import (
+    BORDER_THRESHOLD,
     CONTEXT_ID,
     CONTEXT_TITLE,
     EDITOR_ID,
     EDITOR_TITLE,
     HISTORY_ID,
     HISTORY_TITLE,
+    MIN_PANEL_WEIGHT,
     BoskollApp,
     context_weight,
     editor_weight,
@@ -15,12 +17,14 @@ from boskoll_cli.tui.app import (
 
 __all__ = [
     "BoskollApp",
+    "BORDER_THRESHOLD",
     "CONTEXT_ID",
     "CONTEXT_TITLE",
     "EDITOR_ID",
     "EDITOR_TITLE",
     "HISTORY_ID",
     "HISTORY_TITLE",
+    "MIN_PANEL_WEIGHT",
     "context_weight",
     "editor_weight",
     "history_weight",
