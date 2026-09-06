@@ -264,26 +264,38 @@ async def test_tab_navigation() -> None:
     app = BoskollApp()
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        assert app.focused is None or app.focused.id == HISTORY_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
         await pilot.press("tab")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
         await pilot.press("tab")
         await pilot.pause()
-        assert app.focused.id == CONTEXT_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == CONTEXT_ID
 
 
 async def test_shift_tab_navigation() -> None:
     app = BoskollApp()
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        assert app.focused is None or app.focused.id == HISTORY_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
         await pilot.press("shift+tab")
         await pilot.pause()
-        assert app.focused.id == CONTEXT_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == CONTEXT_ID
         await pilot.press("shift+tab")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
 
 
 async def test_arrow_key_navigation_within_panels() -> None:
@@ -293,21 +305,29 @@ async def test_arrow_key_navigation_within_panels() -> None:
         editor.focus()
         await pilot.pause()
 
+        focused = app.focused
+        assert focused is not None
         await pilot.press("up")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        assert app.focused is not None and app.focused.id == EDITOR_ID
 
+        focused = app.focused
+        assert focused is not None
         await pilot.press("down")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        assert app.focused is not None and app.focused.id == EDITOR_ID
 
+        focused = app.focused
+        assert focused is not None
         await pilot.press("left")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        assert app.focused is not None and app.focused.id == EDITOR_ID
 
+        focused = app.focused
+        assert focused is not None
         await pilot.press("right")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        assert app.focused is not None and app.focused.id == EDITOR_ID
 
 
 async def test_arrow_key_navigation_keeps_focus_in_same_panel() -> None:
@@ -321,7 +341,9 @@ async def test_arrow_key_navigation_keeps_focus_in_same_panel() -> None:
             await pilot.press("up", "down", "left", "right")
             await pilot.pause()
 
-        assert app.focused.id == EDITOR_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
 
 
 async def test_enter_submits_input() -> None:
@@ -332,7 +354,10 @@ async def test_enter_submits_input() -> None:
         assert input_widget is not None
 
         input_widget.focus()
-        await pilot.press("a", "b", "c", "enter")
+        await pilot.pause()
+
+        input_widget.value = "abc"
+        await pilot.press("enter")
         await pilot.pause()
         assert input_widget.value == ""
 
@@ -345,13 +370,17 @@ async def test_enter_does_not_switch_focus_when_focused_on_input() -> None:
         input_widget.focus()
         await pilot.pause()
 
-        initial_focused_id = app.focused.id
+        focused = app.focused
+        assert focused is not None
+        input_id = focused.id
 
         await pilot.press("enter")
         await pilot.pause()
 
-        assert app.focused.id == initial_focused_id
-        assert isinstance(app.focused, Input)
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == input_id
+        assert isinstance(focused, Input)
 
 
 async def test_enter_moves_focus_to_editor_panel_from_non_input_panel_child() -> None:
@@ -362,12 +391,16 @@ async def test_enter_moves_focus_to_editor_panel_from_non_input_panel_child() ->
         history.focus()
         await pilot.pause()
 
-        assert app.focused.id == HISTORY_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
 
         await pilot.press("enter")
         await pilot.pause()
 
-        assert app.focused.id == EDITOR_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
 
 
 async def test_enter_switches_to_editor_panel_when_focused_on_context_panel() -> None:
@@ -378,12 +411,16 @@ async def test_enter_switches_to_editor_panel_when_focused_on_context_panel() ->
         context.focus()
         await pilot.pause()
 
-        assert app.focused.id == CONTEXT_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == CONTEXT_ID
 
         await pilot.press("enter")
         await pilot.pause()
 
-        assert app.focused.id == EDITOR_ID
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
 
 
 async def test_arrow_keys_stop_propagation_within_panel() -> None:
@@ -394,18 +431,26 @@ async def test_arrow_keys_stop_propagation_within_panel() -> None:
         editor.focus()
         await pilot.pause()
 
+        focused = app.focused
+        assert focused is not None
         await pilot.press("down")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        assert app.focused is not None and app.focused.id == EDITOR_ID
 
+        focused = app.focused
+        assert focused is not None
         await pilot.press("up")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        assert app.focused is not None and app.focused.id == EDITOR_ID
 
+        focused = app.focused
+        assert focused is not None
         await pilot.press("right")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        assert app.focused is not None and app.focused.id == EDITOR_ID
 
+        focused = app.focused
+        assert focused is not None
         await pilot.press("left")
         await pilot.pause()
-        assert app.focused.id == EDITOR_ID
+        assert app.focused is not None and app.focused.id == EDITOR_ID
