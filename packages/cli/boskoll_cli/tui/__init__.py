@@ -1,5 +1,6 @@
 """Textual TUI package for boskoll."""
 
+from boskoll_cli.settings import Theme
 from boskoll_cli.tui.app import (
     BORDER_THRESHOLD,
     CONTEXT_ID,
@@ -28,4 +29,5 @@ __all__ = [
     "context_weight",
     "editor_weight",
     "history_weight",
+    "Theme",
 ]

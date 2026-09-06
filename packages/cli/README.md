@@ -18,6 +18,7 @@ and history is kept for the session).
 boskoll --version
 boskoll chat
 boskoll config
+boskoll config --theme light
 boskoll agent
 boskoll workflow
 boskoll sandbox
@@ -25,6 +26,10 @@ boskoll plugin
 boskoll collab
 boskoll update
 ```
+
+The TUI uses the dark theme by default. Set `--theme dark` or `--theme light`
+to persist the preference in `.boskoll/config.toml`; use `ctrl+t` while the TUI
+is running to switch themes for the current session.
 
 Subcommands are registered through the auto-discovered command modules under
 `boskoll_cli/commands/`; each module exposes `COMMAND_NAME` and `build_command()`.

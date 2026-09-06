@@ -6,6 +6,8 @@ of every subcommand — the gaps not exercised by ``test_cli.py``.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click.testing
 import pytest
 from conftest import invoke
@@ -67,6 +69,23 @@ def test_config_show_path(runner: click.testing.CliRunner) -> None:
 def test_config_get_specific_key(runner: click.testing.CliRunner) -> None:
     result = invoke(runner, ["config", "--get", "model"])
     assert "model =" in result.output
+
+
+def test_config_theme_is_dark_by_default(
+    runner: click.testing.CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("BOSKOLL_CONFIG_PATH", str(tmp_path / "config.toml"))
+    result = invoke(runner, ["config", "--get", "theme"])
+    assert "theme = dark" in result.output
+
+
+def test_config_theme_can_be_set(
+    runner: click.testing.CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("BOSKOLL_CONFIG_PATH", str(tmp_path / "config.toml"))
+    result = invoke(runner, ["config", "--theme", "light"])
+    assert "Theme: light" in result.output
+    assert "theme = light" in invoke(runner, ["config", "--get", "theme"]).output
 
 
 def test_config_path_takes_precedence_over_get(runner: click.testing.CliRunner) -> None:
