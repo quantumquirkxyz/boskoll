@@ -11,18 +11,20 @@ from boskoll_cli.tui.app import (
     HISTORY_TITLE,
     MIN_PANEL_WEIGHT,
     BoskollApp,
+    EditorContent,
     context_weight,
     editor_weight,
     history_weight,
 )
 
 __all__ = [
-    "BoskollApp",
     "BORDER_THRESHOLD",
+    "BoskollApp",
     "CONTEXT_ID",
     "CONTEXT_TITLE",
     "EDITOR_ID",
     "EDITOR_TITLE",
+    "EditorContent",
     "HISTORY_ID",
     "HISTORY_TITLE",
     "MIN_PANEL_WEIGHT",
