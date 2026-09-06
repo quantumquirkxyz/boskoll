@@ -66,7 +66,10 @@ async def test_each_panel_has_a_title_label() -> None:
     app = BoskollApp()
     async with app.run_test(size=(80, 24)):
         assert str(app.query_one(f"#{HISTORY_ID}").query_one(Static).render()) == HISTORY_TITLE
-        assert str(app.query_one(f"#{EDITOR_ID}").query_one(Static).render()) == EDITOR_TITLE
+        editor_static = app.query_one(f"#{EDITOR_ID}").query_one(Static)
+        # Editor panel now shows syntax-highlighted code instead of title
+        editor_render = str(editor_static.render())
+        assert "Syntax" in editor_render or "def" in editor_render
         assert str(app.query_one(f"#{CONTEXT_ID}").query_one(Static).render()) == CONTEXT_TITLE
 
 

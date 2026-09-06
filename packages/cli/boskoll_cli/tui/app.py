@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from enum import Enum
 
+from rich.syntax import Syntax
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, VerticalScroll
 from textual.events import MouseDown, MouseMove, MouseUp
@@ -39,6 +40,27 @@ class ResizeBorder(Enum):
 _WEIGHT_HISTORY = 1
 _WEIGHT_EDITOR = 2
 _WEIGHT_CONTEXT = 1
+
+_SAMPLE_PYTHON = '''def hello_world():
+    """Print a friendly greeting."""
+    print("Hello, World!")
+    return 42
+
+
+if __name__ == "__main__":
+    hello_world()
+'''
+
+_SAMPLE_JS = '''function helloWorld() {
+    console.log("Hello, World!");
+    return 42;
+}
+
+
+if (typeof module !== "undefined") {
+    helloWorld();
+}
+'''
 
 
 class Panel(VerticalScroll):
@@ -99,9 +121,30 @@ class BoskollApp(App[None]):
         yield Header()
         with Horizontal():
             yield Panel(Static(HISTORY_TITLE), id=HISTORY_ID)
-            yield Panel(Static(EDITOR_TITLE), id=EDITOR_ID)
+            yield Panel(self._make_editor_content(), id=EDITOR_ID)
             yield Panel(Static(CONTEXT_TITLE), id=CONTEXT_ID)
         yield Footer()
+
+    def _make_editor_content(self) -> Static:
+        """Create the editor content with syntax highlighting."""
+        return Static(
+            Syntax(_SAMPLE_PYTHON, "python", theme="monokai", line_numbers=True, word_wrap=True)
+        )
+
+    def set_editor_code(self, code: str, language: str = "python") -> None:
+        """Replace the editor panel's content with ``code`` highlighted as ``language``.
+
+        Parameters
+        ----------
+        code:
+            The new source to render.
+        language:
+            A Pygments lexer name (``"python"``, ``"javascript"``, ``"typescript"``, ...).
+            Defaults to ``"python"``.
+        """
+        editor = self.query_one(f"#{EDITOR_ID}")
+        static = editor.query_one(Static)
+        static.update(Syntax(code, language, theme="monokai", line_numbers=True, word_wrap=True))
 
     def on_mount(self) -> None:
         self.apply_weights()

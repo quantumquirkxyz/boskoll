@@ -28,6 +28,7 @@ classifiers = [
 dependencies = [
     "click>=8.1",
     "rich>=13.0",
+    "pygments>=2.15",
 ]
 
 [project.optional-dependencies]
