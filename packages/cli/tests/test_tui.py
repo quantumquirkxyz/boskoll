@@ -22,12 +22,14 @@ from boskoll_cli.tui import (
     EDITOR_ID,
     EDITOR_TITLE,
     HISTORY_ID,
-    HISTORY_TITLE,
-    MIN_PANEL_WEIGHT,
-    BoskollApp,
+    HISTORY_TITLE,    MIN_PANEL_WEIGHT,    BoskollApp,
+    EditorContent,
     context_weight,
     editor_weight,
     history_weight,
+
+
+
 )
 
 PANEL_IDS = (HISTORY_ID, EDITOR_ID, CONTEXT_ID)
@@ -104,6 +106,50 @@ async def test_panels_have_correct_proportions() -> None:
     assert history.height == editor.height == context.height
 
 
+async def test_panel_rendering_is_stable_across_theme_switch() -> None:
+    app = BoskollApp(theme=Theme.DARK)
+    async with app.run_test(size=(80, 24)):
+        editor_static_before = app.query_one(f"#{EDITOR_ID}").query_one(Static)
+        editor_render_before = str(editor_static_before.render())
+        assert editor_static_before.boskoll_theme is Theme.DARK
+
+        app.set_theme(Theme.LIGHT)
+
+        editor_static_after = app.query_one(f"#{EDITOR_ID}").query_one(Static)
+        editor_render_after = str(editor_static_after.render())
+        assert editor_static_after.boskoll_theme is Theme.LIGHT
+
+        assert "Syntax" in editor_render_after or "def" in editor_render_after
+        assert editor_render_after != editor_render_before
+
+
+async def test_theme_can_be_switched_after_mount() -> None:
+    app = BoskollApp(theme=Theme.DARK)
+    async with app.run_test(size=(80, 24)):
+        assert app.boskoll_theme is Theme.DARK
+        assert app.dark is True
+
+        app.set_theme(Theme.LIGHT)
+
+        assert app.boskoll_theme is Theme.LIGHT
+        assert app.dark is False
+
+        editor = app.query_one(f"#{EDITOR_ID}").query_one(EditorContent)
+        assert editor.boskoll_theme is Theme.LIGHT
+
+
+async def test_theme_switch_returns_app_to_dark_theme() -> None:
+    app = BoskollApp(theme=Theme.LIGHT)
+    async with app.run_test(size=(80, 24)):
+        assert app.boskoll_theme is Theme.LIGHT
+        assert app.dark is False
+
+        app.set_theme(Theme.DARK)
+
+        assert app.boskoll_theme is Theme.DARK
+        assert app.dark is True
+
+
 async def test_panels_are_arranged_left_to_right() -> None:
     app = BoskollApp()
     async with app.run_test(size=(80, 24)):
@@ -115,6 +161,37 @@ async def test_panels_are_arranged_left_to_right() -> None:
     assert history.right == editor.x
     assert editor.right == context.x
     assert context.x + context.width == 80
+
+
+async def test_editor_panel_rendering_is_syntax_highlighted() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)):
+        editor_static = app.query_one(f"#{EDITOR_ID}").query_one(Static)
+        editor_render = str(editor_static.render())
+
+    assert "Syntax" in editor_render or "def" in editor_render
+    assert "hello_world" not in editor_render
+
+
+async def test_panel_rendering_is_stable_after_resize() -> None:
+    app = BoskollApp()
+    size = (80, 24)
+    async with app.run_test(size=size) as pilot:
+        await pilot.pause()
+
+        editor = app.query_one(f"#{EDITOR_ID}")
+        editor_content = editor.query_one(EditorContent)
+        assert editor_content.language == "python"
+
+        app.set_theme(Theme.LIGHT)
+        app.set_theme(Theme.DARK)
+
+        await pilot.pause()
+
+        editor_content_after = editor.query_one(EditorContent)
+        assert editor_content_after.language == "python"
+        assert editor_content_after.code == editor_content.code
+
 
 
 async def test_app_composes_header_and_footer() -> None:
@@ -260,6 +337,34 @@ async def test_minimum_panel_size_enforced_mouse() -> None:
         assert all(w >= MIN_PANEL_WEIGHT for w in app._weights.values())
 
 
+async def test_panel_resizing_does_not_destroy_content() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+
+        editor_content = app.query_one(f"#{EDITOR_ID}").query_one(EditorContent)
+        before = editor_content.code
+
+        history = app.query_one(f"#{HISTORY_ID}")
+        horizontal = app.query_one(Horizontal)
+
+        border_x = history.region.right
+        border_y = horizontal.region.y + 1
+
+        app.on_mouse_down(MouseDown(None, border_x, border_y, 0, 0, 0, False, False, False))
+        app.on_mouse_move(MouseMove(None, border_x + 20, border_y, 0, 0, 0, False, False, False))
+        app.on_mouse_up(MouseUp(None, border_x + 20, border_y, 0, 0, 0, False, False, False))
+
+        await pilot.pause()
+
+        assert editor_content.code == before
+        assert editor_content.language == "python"
+
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID or focused.id == HISTORY_ID
+
+
 async def test_tab_navigation() -> None:
     app = BoskollApp()
     async with app.run_test(size=(80, 24)) as pilot:
@@ -344,6 +449,54 @@ async def test_arrow_key_navigation_keeps_focus_in_same_panel() -> None:
         focused = app.focused
         assert focused is not None
         assert focused.id == EDITOR_ID
+
+
+async def test_tab_navigation_is_circular_forward() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
+        await pilot.press("tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
+        await pilot.press("tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == CONTEXT_ID
+        await pilot.press("tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
+
+
+async def test_tab_navigation_is_circular_backward() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
+        await pilot.press("shift+tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == CONTEXT_ID
+        await pilot.press("shift+tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
+        await pilot.press("shift+tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
 
 
 async def test_enter_submits_input() -> None:
@@ -454,3 +607,22 @@ async def test_arrow_keys_stop_propagation_within_panel() -> None:
         await pilot.press("left")
         await pilot.pause()
         assert app.focused is not None and app.focused.id == EDITOR_ID
+
+
+async def test_ctrl_weight_shortcuts_only_move_with_neighbor() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+
+        context = app.query_one(f"#{CONTEXT_ID}")
+        context.focus()
+        await pilot.pause()
+
+        initial_context = app._weights[CONTEXT_ID]
+        initial_editor = app._weights[EDITOR_ID]
+
+        await pilot.press("ctrl+right")
+        await pilot.pause()
+
+        assert app._weights[CONTEXT_ID] == initial_context + 1
+        assert app._weights[EDITOR_ID] == initial_editor - 1
