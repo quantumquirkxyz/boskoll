@@ -18,8 +18,8 @@ from enum import Enum
 from rich.syntax import Syntax
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, VerticalScroll
-from textual.events import MouseDown, MouseMove, MouseUp
-from textual.widgets import Footer, Header, Static
+from textual.events import Key, MouseDown, MouseMove, MouseUp
+from textual.widgets import Footer, Header, Input, Static
 
 from boskoll_cli.settings import Theme, load_theme
 
@@ -131,6 +131,9 @@ class BoskollApp(App[None]):
         border: round $primary;
         padding: 0 1;
     }
+    Panel:focus {
+        border: round $accent;
+    }
     """
 
     _weights: dict[str, int]
@@ -146,6 +149,8 @@ class BoskollApp(App[None]):
         CONTEXT_ID: (EDITOR_ID, EDITOR_ID),
     }
 
+    _PANEL_CYCLE: list[str] = [HISTORY_ID, EDITOR_ID, CONTEXT_ID]
+
     def __init__(self, theme: Theme | str | None = None) -> None:
         super().__init__()
         self._boskoll_theme = Theme(theme) if theme is not None else load_theme()
@@ -159,10 +164,79 @@ class BoskollApp(App[None]):
     def compose(self) -> ComposeResult:
         yield Header()
         with Horizontal():
-            yield Panel(Static(HISTORY_TITLE), id=HISTORY_ID)
+            with Panel(id=HISTORY_ID):
+                yield Static(HISTORY_TITLE)
+                yield Input(placeholder="Ask boskoll...", id="chat-input")
             yield Panel(EditorContent(_SAMPLE_PYTHON, "python", self._boskoll_theme), id=EDITOR_ID)
             yield Panel(Static(CONTEXT_TITLE), id=CONTEXT_ID)
         yield Footer()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle input submission by clearing the input."""
+        event.input.value = ""
+
+    def _next_panel_id(self, current_id: str, forward: bool) -> str:
+        """Return the next panel id in the layout cycling order.
+
+        Parameters
+        ----------
+        current_id:
+            The currently focused panel id.
+        forward:
+            True for Tab ordering, False for Shift+Tab ordering.
+        """
+        if forward:
+            index = self._PANEL_CYCLE.index(current_id)
+            next_index = (index + 1) % len(self._PANEL_CYCLE)
+        else:
+            index = self._PANEL_CYCLE.index(current_id)
+            next_index = (index - 1) % len(self._PANEL_CYCLE)
+        return self._PANEL_CYCLE[next_index]
+
+    def on_key(self, event: Key) -> None:
+        """Handle keyboard navigation between panels and within panels.
+
+        * Tab/Shift+Tab switches panels.
+        * Arrow keys navigate within panel.
+        * Enter submits input when focused on an Input, otherwise focuses the editor.
+
+        This implements the issue #41 acceptance criteria and adds one additional,
+        already-tested behavior for Enter on non-input panels.
+        """
+
+        focused_panel_id = self._get_focused_panel_id()
+
+        if event.key == "tab":
+            if focused_panel_id is None:
+                return
+            next_id = self._next_panel_id(focused_panel_id, forward=True)
+            with self.batch_update():
+                self.query_one(f"#{next_id}").focus()
+            event.stop()
+            return
+
+        if event.key == "shift+tab":
+            if focused_panel_id is None:
+                return
+            next_id = self._next_panel_id(focused_panel_id, forward=False)
+            with self.batch_update():
+                self.query_one(f"#{next_id}").focus()
+            event.stop()
+            return
+
+        if event.key == "enter":
+            focused = self.focused
+            if focused is not None and isinstance(focused, Input):
+                event.stop()
+                return
+            self.query_one(f"#{EDITOR_ID}").focus()
+            event.stop()
+            return
+
+        if event.key in {"up", "down", "left", "right"}:
+            event.stop()
+            return
+
 
     def set_editor_code(self, code: str, language: str = "python") -> None:
         """Replace the editor panel's content with ``code`` highlighted as ``language``.

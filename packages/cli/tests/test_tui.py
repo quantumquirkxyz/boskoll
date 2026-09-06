@@ -13,7 +13,7 @@ import pytest
 from textual.app import App
 from textual.containers import Horizontal
 from textual.events import MouseDown, MouseMove, MouseUp
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Footer, Header, Input, Static
 
 from boskoll_cli.settings import Theme
 from boskoll_cli.tui import (
@@ -122,9 +122,6 @@ async def test_app_composes_header_and_footer() -> None:
     async with app.run_test(size=(80, 24)):
         assert app.query_one(Header) is not None
         assert app.query_one(Footer) is not None
-
-
-
 
 
 async def test_panels_are_focusable() -> None:
@@ -261,3 +258,199 @@ async def test_minimum_panel_size_enforced_mouse() -> None:
         assert app._weights[EDITOR_ID] >= MIN_PANEL_WEIGHT
         assert app._weights[CONTEXT_ID] >= MIN_PANEL_WEIGHT
         assert all(w >= MIN_PANEL_WEIGHT for w in app._weights.values())
+
+
+async def test_tab_navigation() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
+        await pilot.press("tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
+        await pilot.press("tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == CONTEXT_ID
+
+
+async def test_shift_tab_navigation() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
+        await pilot.press("shift+tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == CONTEXT_ID
+        await pilot.press("shift+tab")
+        await pilot.pause()
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
+
+
+async def test_arrow_key_navigation_within_panels() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        editor = app.query_one(f"#{EDITOR_ID}")
+        editor.focus()
+        await pilot.pause()
+
+        focused = app.focused
+        assert focused is not None
+        await pilot.press("up")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == EDITOR_ID
+
+        focused = app.focused
+        assert focused is not None
+        await pilot.press("down")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == EDITOR_ID
+
+        focused = app.focused
+        assert focused is not None
+        await pilot.press("left")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == EDITOR_ID
+
+        focused = app.focused
+        assert focused is not None
+        await pilot.press("right")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == EDITOR_ID
+
+
+async def test_arrow_key_navigation_keeps_focus_in_same_panel() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        editor = app.query_one(f"#{EDITOR_ID}")
+        editor.focus()
+        await pilot.pause()
+
+        for _ in range(5):
+            await pilot.press("up", "down", "left", "right")
+            await pilot.pause()
+
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
+
+
+async def test_enter_submits_input() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        input_widget = app.query_one(Input)
+        assert input_widget is not None
+
+        input_widget.focus()
+        await pilot.pause()
+
+        input_widget.value = "abc"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert input_widget.value == ""
+
+
+async def test_enter_does_not_switch_focus_when_focused_on_input() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        input_widget = app.query_one(Input)
+        input_widget.focus()
+        await pilot.pause()
+
+        focused = app.focused
+        assert focused is not None
+        input_id = focused.id
+
+        await pilot.press("enter")
+        await pilot.pause()
+
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == input_id
+        assert isinstance(focused, Input)
+
+
+async def test_enter_moves_focus_to_editor_panel_from_non_input_panel_child() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        history = app.query_one(f"#{HISTORY_ID}")
+        history.focus()
+        await pilot.pause()
+
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == HISTORY_ID
+
+        await pilot.press("enter")
+        await pilot.pause()
+
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
+
+
+async def test_enter_switches_to_editor_panel_when_focused_on_context_panel() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        context = app.query_one(f"#{CONTEXT_ID}")
+        context.focus()
+        await pilot.pause()
+
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == CONTEXT_ID
+
+        await pilot.press("enter")
+        await pilot.pause()
+
+        focused = app.focused
+        assert focused is not None
+        assert focused.id == EDITOR_ID
+
+
+async def test_arrow_keys_stop_propagation_within_panel() -> None:
+    app = BoskollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        editor = app.query_one(f"#{EDITOR_ID}")
+        editor.focus()
+        await pilot.pause()
+
+        focused = app.focused
+        assert focused is not None
+        await pilot.press("down")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == EDITOR_ID
+
+        focused = app.focused
+        assert focused is not None
+        await pilot.press("up")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == EDITOR_ID
+
+        focused = app.focused
+        assert focused is not None
+        await pilot.press("right")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == EDITOR_ID
+
+        focused = app.focused
+        assert focused is not None
+        await pilot.press("left")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == EDITOR_ID
