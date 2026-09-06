@@ -20,7 +20,6 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, VerticalScroll
 from textual.events import Key, MouseDown, MouseMove, MouseUp
 from textual.widgets import Footer, Header, Input, Static
-from textual.binding import Binding
 
 from boskoll_cli.settings import Theme, load_theme
 

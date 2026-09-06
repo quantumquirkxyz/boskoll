@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from textual.app import App
 from textual.containers import Horizontal
-from textual.events import MouseDown, MouseMove, MouseUp, Key
+from textual.events import MouseDown, MouseMove, MouseUp
 from textual.widgets import Footer, Header, Input, Static
 
 from boskoll_cli.settings import Theme
