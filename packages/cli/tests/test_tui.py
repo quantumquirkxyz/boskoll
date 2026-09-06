@@ -7,12 +7,15 @@ minimum panel size enforcement.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from textual.app import App
 from textual.containers import Horizontal
 from textual.events import MouseDown, MouseMove, MouseUp
 from textual.widgets import Footer, Header, Static
 
+from boskoll_cli.settings import Theme
 from boskoll_cli.tui import (
     CONTEXT_ID,
     CONTEXT_TITLE,
@@ -46,6 +49,20 @@ def test_panel_weight_helpers(weight_fn: object, expected: int) -> None:
 
 def test_boskoll_app_is_textual_app() -> None:
     assert issubclass(BoskollApp, App)
+
+
+def test_dark_theme_is_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("BOSKOLL_CONFIG_PATH", str(tmp_path / "config.toml"))
+    app = BoskollApp()
+    assert app.boskoll_theme is Theme.DARK
+    assert app.dark is True
+
+
+def test_light_theme_can_be_selected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("BOSKOLL_CONFIG_PATH", str(tmp_path / "config.toml"))
+    app = BoskollApp(theme=Theme.LIGHT)
+    assert app.boskoll_theme is Theme.LIGHT
+    assert app.dark is False
 
 
 def test_layout_titles_defined() -> None:
@@ -105,6 +122,9 @@ async def test_app_composes_header_and_footer() -> None:
     async with app.run_test(size=(80, 24)):
         assert app.query_one(Header) is not None
         assert app.query_one(Footer) is not None
+
+
+
 
 
 async def test_panels_are_focusable() -> None:

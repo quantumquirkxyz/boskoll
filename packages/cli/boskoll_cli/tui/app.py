@@ -21,6 +21,8 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.events import MouseDown, MouseMove, MouseUp
 from textual.widgets import Footer, Header, Static
 
+from boskoll_cli.settings import Theme, load_theme
+
 HISTORY_ID = "history"
 EDITOR_ID = "editor"
 CONTEXT_ID = "context"
@@ -63,6 +65,39 @@ if (typeof module !== "undefined") {
 '''
 
 
+class EditorContent(Static):
+    """Custom widget to hold the editor's syntax highlighting."""
+
+    def __init__(self, code: str, language: str, boskoll_theme: Theme) -> None:
+        super().__init__()
+        self.code = code
+        self.language = language
+        self.boskoll_theme = boskoll_theme
+
+    def on_mount(self) -> None:
+        self.update_syntax()
+
+    def update_syntax(self) -> None:
+        self.update(
+            Syntax(
+                self.code,
+                self.language,
+                theme="monokai" if self.boskoll_theme is Theme.DARK else "default",
+                line_numbers=True,
+                word_wrap=True,
+            )
+        )
+
+    def set_content(self, code: str, language: str) -> None:
+        self.code = code
+        self.language = language
+        self.update_syntax()
+
+    def set_theme(self, theme: Theme) -> None:
+        self.boskoll_theme = theme
+        self.update_syntax()
+
+
 class Panel(VerticalScroll):
     """A scrollable panel that fills one slot of the three-panel layout."""
     can_focus = True
@@ -102,6 +137,8 @@ class BoskollApp(App[None]):
     _dragging: bool = False
     _drag_border: ResizeBorder | None = None
     _last_drag_x: int = 0
+    _boskoll_theme: Theme
+    _mounted: bool = False
 
     _PANEL_NEIGHBORS: dict[str, tuple[str, str]] = {
         HISTORY_ID: (EDITOR_ID, EDITOR_ID),
@@ -109,8 +146,10 @@ class BoskollApp(App[None]):
         CONTEXT_ID: (EDITOR_ID, EDITOR_ID),
     }
 
-    def __init__(self) -> None:
+    def __init__(self, theme: Theme | str | None = None) -> None:
         super().__init__()
+        self._boskoll_theme = Theme(theme) if theme is not None else load_theme()
+        self.dark = self._boskoll_theme is Theme.DARK
         self._weights = {
             HISTORY_ID: _WEIGHT_HISTORY,
             EDITOR_ID: _WEIGHT_EDITOR,
@@ -121,15 +160,9 @@ class BoskollApp(App[None]):
         yield Header()
         with Horizontal():
             yield Panel(Static(HISTORY_TITLE), id=HISTORY_ID)
-            yield Panel(self._make_editor_content(), id=EDITOR_ID)
+            yield Panel(EditorContent(_SAMPLE_PYTHON, "python", self._boskoll_theme), id=EDITOR_ID)
             yield Panel(Static(CONTEXT_TITLE), id=CONTEXT_ID)
         yield Footer()
-
-    def _make_editor_content(self) -> Static:
-        """Create the editor content with syntax highlighting."""
-        return Static(
-            Syntax(_SAMPLE_PYTHON, "python", theme="monokai", line_numbers=True, word_wrap=True)
-        )
 
     def set_editor_code(self, code: str, language: str = "python") -> None:
         """Replace the editor panel's content with ``code`` highlighted as ``language``.
@@ -143,10 +176,23 @@ class BoskollApp(App[None]):
             Defaults to ``"python"``.
         """
         editor = self.query_one(f"#{EDITOR_ID}")
-        static = editor.query_one(Static)
-        static.update(Syntax(code, language, theme="monokai", line_numbers=True, word_wrap=True))
+        content = editor.query_one(EditorContent)
+        content.set_content(code, language)
+
+    @property
+    def boskoll_theme(self) -> Theme:
+        """Return the active TUI theme."""
+        return self._boskoll_theme
+
+    def set_theme(self, theme: Theme | str) -> None:
+        """Apply a theme to the running TUI."""
+        self._boskoll_theme = Theme(theme)
+        self.dark = self._boskoll_theme is Theme.DARK
+        if self._mounted:
+            self.query_one(f"#{EDITOR_ID}").query_one(EditorContent).set_theme(self._boskoll_theme)
 
     def on_mount(self) -> None:
+        self._mounted = True
         self.apply_weights()
 
     def apply_weights(self) -> None:
