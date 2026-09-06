@@ -36,7 +36,7 @@ def load_theme(path: Path | None = None) -> Theme:
     for line in active_path.read_text(encoding="utf-8").splitlines():
         key, separator, value = line.partition("=")
         if key.strip() == "theme" and separator:
-            configured_theme = value.strip().strip('"')
+            configured_theme = value.strip().strip("'\"")
             break
     try:
         return Theme(configured_theme)
@@ -59,9 +59,12 @@ def save_theme(theme: Theme, path: Path | None = None) -> Path:
     theme_line_found = False
 
     for i, line in enumerate(lines):
-        key, separator, _ = line.partition("=")
+        key, separator, value = line.partition("=")
         if key.strip() == "theme" and separator:
-            lines[i] = f'theme = "{theme.value}"\n'
+            comment = ""
+            if "#" in value:
+                comment = " #" + value.split("#", 1)[1].rstrip('\n')
+            lines[i] = f'theme = "{theme.value}"{comment}\n'
             theme_line_found = True
             break
 

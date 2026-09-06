@@ -65,6 +65,39 @@ if (typeof module !== "undefined") {
 '''
 
 
+class EditorContent(Static):
+    """Custom widget to hold the editor's syntax highlighting."""
+
+    def __init__(self, code: str, language: str, boskoll_theme: Theme) -> None:
+        super().__init__()
+        self.code = code
+        self.language = language
+        self.boskoll_theme = boskoll_theme
+
+    def on_mount(self) -> None:
+        self.update_syntax()
+
+    def update_syntax(self) -> None:
+        self.update(
+            Syntax(
+                self.code,
+                self.language,
+                theme="monokai" if self.boskoll_theme is Theme.DARK else "default",
+                line_numbers=True,
+                word_wrap=True,
+            )
+        )
+
+    def set_content(self, code: str, language: str) -> None:
+        self.code = code
+        self.language = language
+        self.update_syntax()
+
+    def set_theme(self, theme: Theme) -> None:
+        self.boskoll_theme = theme
+        self.update_syntax()
+
+
 class Panel(VerticalScroll):
     """A scrollable panel that fills one slot of the three-panel layout."""
     can_focus = True
@@ -79,7 +112,6 @@ class BoskollApp(App[None]):
     BINDINGS = [
         ("ctrl+left", "decrease_weight", "Decrease panel width"),
         ("ctrl+right", "increase_weight", "Increase panel width"),
-        ("ctrl+t", "toggle_theme", "Toggle theme"),
     ]
 
     CSS = """
@@ -106,8 +138,6 @@ class BoskollApp(App[None]):
     _drag_border: ResizeBorder | None = None
     _last_drag_x: int = 0
     _boskoll_theme: Theme
-    _editor_code: str = _SAMPLE_PYTHON
-    _editor_language: str = "python"
     _mounted: bool = False
 
     _PANEL_NEIGHBORS: dict[str, tuple[str, str]] = {
@@ -130,15 +160,9 @@ class BoskollApp(App[None]):
         yield Header()
         with Horizontal():
             yield Panel(Static(HISTORY_TITLE), id=HISTORY_ID)
-            yield Panel(self._make_editor_content(), id=EDITOR_ID)
+            yield Panel(EditorContent(_SAMPLE_PYTHON, "python", self._boskoll_theme), id=EDITOR_ID)
             yield Panel(Static(CONTEXT_TITLE), id=CONTEXT_ID)
         yield Footer()
-
-    def _make_editor_content(self) -> Static:
-        """Create the editor content with syntax highlighting."""
-        return Static(
-            self._syntax(self._editor_code, self._editor_language)
-        )
 
     def set_editor_code(self, code: str, language: str = "python") -> None:
         """Replace the editor panel's content with ``code`` highlighted as ``language``.
@@ -151,20 +175,9 @@ class BoskollApp(App[None]):
             A Pygments lexer name (``"python"``, ``"javascript"``, ``"typescript"``, ...).
             Defaults to ``"python"``.
         """
-        self._editor_code = code
-        self._editor_language = language
         editor = self.query_one(f"#{EDITOR_ID}")
-        static = editor.query_one(Static)
-        static.update(self._syntax(code, language))
-
-    def _syntax(self, code: str, language: str) -> Syntax:
-        return Syntax(
-            code,
-            language,
-            theme="monokai" if self._boskoll_theme is Theme.DARK else "default",
-            line_numbers=True,
-            word_wrap=True,
-        )
+        content = editor.query_one(EditorContent)
+        content.set_content(code, language)
 
     @property
     def boskoll_theme(self) -> Theme:
@@ -176,12 +189,7 @@ class BoskollApp(App[None]):
         self._boskoll_theme = Theme(theme)
         self.dark = self._boskoll_theme is Theme.DARK
         if self._mounted:
-            self.query_one(f"#{EDITOR_ID}").query_one(Static).update(
-                self._syntax(self._editor_code, self._editor_language)
-            )
-
-    def action_toggle_theme(self) -> None:
-        self.set_theme(Theme.LIGHT if self._boskoll_theme is Theme.DARK else Theme.DARK)
+            self.query_one(f"#{EDITOR_ID}").query_one(EditorContent).set_theme(self._boskoll_theme)
 
     def on_mount(self) -> None:
         self._mounted = True

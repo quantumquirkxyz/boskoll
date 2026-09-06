@@ -124,12 +124,7 @@ async def test_app_composes_header_and_footer() -> None:
         assert app.query_one(Footer) is not None
 
 
-async def test_theme_can_be_toggled() -> None:
-    app = BoskollApp()
-    async with app.run_test(size=(80, 24)) as pilot:
-        await pilot.press("ctrl+t")
-        assert app.boskoll_theme is Theme.LIGHT
-        assert app.dark is False
+
 
 
 async def test_panels_are_focusable() -> None:
