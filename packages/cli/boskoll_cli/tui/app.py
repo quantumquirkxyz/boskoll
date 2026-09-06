@@ -41,6 +41,27 @@ _WEIGHT_HISTORY = 1
 _WEIGHT_EDITOR = 2
 _WEIGHT_CONTEXT = 1
 
+_SAMPLE_PYTHON = '''def hello_world():
+    """Print a friendly greeting."""
+    print("Hello, World!")
+    return 42
+
+
+if __name__ == "__main__":
+    hello_world()
+'''
+
+_SAMPLE_JS = '''function helloWorld() {
+    console.log("Hello, World!");
+    return 42;
+}
+
+
+if (typeof module !== "undefined") {
+    helloWorld();
+}
+'''
+
 
 class Panel(VerticalScroll):
     """A scrollable panel that fills one slot of the three-panel layout."""
@@ -106,23 +127,24 @@ class BoskollApp(App[None]):
 
     def _make_editor_content(self) -> Static:
         """Create the editor content with syntax highlighting."""
-        code = '''def hello_world():
-    """Print a friendly greeting."""
-    print("Hello, World!")
-    return 42
-
-
-if __name__ == "__main__":
-    hello_world()
-'''
-        syntax = Syntax(
-            code,
-            "python",
-            theme="monokai",
-            line_numbers=True,
-            word_wrap=True,
+        return Static(
+            Syntax(_SAMPLE_PYTHON, "python", theme="monokai", line_numbers=True, word_wrap=True)
         )
-        return Static(syntax)
+
+    def set_editor_code(self, code: str, language: str = "python") -> None:
+        """Replace the editor panel's content with ``code`` highlighted as ``language``.
+
+        Parameters
+        ----------
+        code:
+            The new source to render.
+        language:
+            A Pygments lexer name (``"python"``, ``"javascript"``, ``"typescript"``, ...).
+            Defaults to ``"python"``.
+        """
+        editor = self.query_one(f"#{EDITOR_ID}")
+        static = editor.query_one(Static)
+        static.update(Syntax(code, language, theme="monokai", line_numbers=True, word_wrap=True))
 
     def on_mount(self) -> None:
         self.apply_weights()
