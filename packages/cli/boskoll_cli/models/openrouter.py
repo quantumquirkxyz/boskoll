@@ -16,6 +16,7 @@ exercised offline against a fake transport in tests.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
@@ -52,7 +53,6 @@ class _Transport(Protocol):
         path: str,
         *,
         body: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
     ) -> _Response:
         ...
 
@@ -75,17 +75,14 @@ class _UrllibTransport:
         path: str,
         *,
         body: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
     ) -> _Response:
         url = self._base_url + path
         data: bytes | None = None
-        merged_headers: dict[str, str] = {}
-        if headers is not None:
-            merged_headers.update(headers)
+        headers: dict[str, str] = {}
         if body is not None:
             data = json.dumps(body).encode("utf-8")
-            merged_headers.setdefault("Content-Type", "application/json")
-        req = request.Request(url, data=data, method=method, headers=merged_headers)
+            headers["Content-Type"] = "application/json"
+        req = request.Request(url, data=data, method=method, headers=headers)
         response = request.urlopen(req, timeout=self._timeout)
         return cast("_Response", response)
 
@@ -116,21 +113,25 @@ class OpenRouterAdapter(ModelAdapter):
     DEFAULT_TIMEOUT = 30.0
     """Default per-request timeout in seconds."""
 
-    api_key: str = ""
+    DEFAULT_MAX_RETRIES = 3
+    """Default maximum retry attempts for rate-limited requests."""
+
+    DEFAULT_RETRY_BACKOFF_BASE = 1.0
+    """Default base delay in seconds for exponential backoff."""
+
+    api_key: str | None = None
     base_url: str = DEFAULT_BASE_URL
     timeout: float = DEFAULT_TIMEOUT
+    max_retries: int = DEFAULT_MAX_RETRIES
+    retry_backoff_base: float = DEFAULT_RETRY_BACKOFF_BASE
     model: str | None = None
     transport: _Transport | None = None
 
     def __post_init__(self) -> None:
+        if self.api_key is None:
+            raise OpenRouterError("OpenRouter API key is required")
         if self.transport is None:
             self.transport = _UrllibTransport(self.base_url.rstrip("/"), self.timeout)
-
-    def _auth_headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.api_key}"}
-
-    def _api_headers(self) -> dict[str, str]:
-        return {**self._auth_headers(), "HTTP-Referer": "https://boskoll.dev", "X-Title": "boskoll"}
 
     def list_models(self) -> list[str]:
         """List the models available from OpenRouter.
@@ -139,7 +140,7 @@ class OpenRouterAdapter(ModelAdapter):
         ``"openai/gpt-4o"``).
         """
         payload = self._request_json(
-            "GET", "/api/v1/models", headers=self._auth_headers()
+            "GET", "/api/v1/models", headers={"Authorization": f"Bearer {self.api_key}"}
         )
         return [model["id"] for model in payload.get("data", []) if "id" in model]
 
@@ -150,7 +151,7 @@ class OpenRouterAdapter(ModelAdapter):
             "POST",
             "/api/v1/chat/completions",
             body=body,
-            headers=self._api_headers(),
+            headers={"Authorization": f"Bearer {self.api_key}"},
         )
         choices = payload.get("choices", [])
         if not choices:
@@ -164,7 +165,7 @@ class OpenRouterAdapter(ModelAdapter):
             "POST",
             "/api/v1/chat/completions",
             body=body,
-            headers=self._api_headers(),
+            headers={"Authorization": f"Bearer {self.api_key}"},
         )
         if response.status >= 400:
             raise OpenRouterError(f"HTTP {response.status}")
@@ -200,11 +201,42 @@ class OpenRouterAdapter(ModelAdapter):
     ) -> _Response:
         """Issue a request through the transport, wrapping connection failures."""
         try:
-            return self._require_transport().request(method, path, body=body, headers=headers)
+            response = self._require_transport().request(method, path, body=body)
         except OSError as exc:
             raise OpenRouterError(
                 f"Unable to connect to OpenRouter at {self.base_url}: {exc}"
             ) from exc
+
+        if response.status == 429 and self.max_retries > 0:
+            return self._retry_rate_limited(method, path, body=body, response=response)
+
+        return response
+
+        return response
+
+    def _retry_rate_limited(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: Mapping[str, Any] | None = None,
+        response: _Response,
+    ) -> _Response:
+        """Retry a rate-limited request with exponential backoff."""
+        attempt = 0
+        while attempt < self.max_retries:
+            delay = self.retry_backoff_base * (2 ** attempt)
+            time.sleep(delay)
+            attempt += 1
+            try:
+                response = self._require_transport().request(method, path, body=body)
+            except OSError as exc:
+                raise OpenRouterError(
+                    f"Unable to connect to OpenRouter at {self.base_url}: {exc}"
+                ) from exc
+            if response.status != 429:
+                break
+        return response
 
     def _request_json(
         self,

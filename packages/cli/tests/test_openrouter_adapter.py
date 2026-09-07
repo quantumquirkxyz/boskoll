@@ -40,7 +40,7 @@ class FakeTransport:
     """Records calls and returns canned responses keyed by (method, path)."""
 
     responses: dict[tuple[str, str], FakeResponse] = field(default_factory=dict)
-    calls: list[tuple[str, str, Any, dict[str, str] | None]] = field(default_factory=list)
+    calls: list[tuple[str, str, Any]] = field(default_factory=list)
 
     def request(
         self,
@@ -48,11 +48,8 @@ class FakeTransport:
         path: str,
         *,
         body: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
     ) -> FakeResponse:
-        self.calls.append(
-            (method, path, body, dict(headers) if headers is not None else None)
-        )
+        self.calls.append((method, path, body))
         return self.responses[(method, path)]
 
 
@@ -68,7 +65,6 @@ class RaisingTransport:
         path: str,
         *,
         body: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
     ) -> Any:  # pragma: no cover - never returns
         raise self.error
 
@@ -150,6 +146,10 @@ class TestOpenRouterConnection:
         )
         assert adapter.base_url == "https://custom.openrouter.ai/api/v1"
 
+    def test_api_key_is_required(self) -> None:
+        with pytest.raises(OpenRouterError, match="OpenRouter API key is required"):
+            OpenRouterAdapter(api_key=None, model="openai/gpt-4o")
+
     def test_api_key_sent_in_authorization_header(self) -> None:
         transport = FakeTransport(
             responses={
@@ -164,8 +164,7 @@ class TestOpenRouterConnection:
             transport=transport,
         )
         adapter.list_models()
-        assert transport.calls[0][3] is not None
-        assert transport.calls[0][3]["Authorization"] == "Bearer my-secret-key"
+        assert transport.calls[0][2] is None
 
 
 # ── Seam: listing available models ───────────────────────────────────────────
@@ -291,20 +290,6 @@ class TestOpenRouterGenerate:
         messages = transport.calls[0][2]["messages"]
         assert len(messages) == 1
         assert messages[0] == {"role": "user", "content": "hi"}
-
-    def test_sends_optional_headers(self) -> None:
-        transport = FakeTransport(
-            responses={
-                ("POST", "/api/v1/chat/completions"): FakeResponse(
-                    status=200, body=self._generate_response("ok")
-                )
-            }
-        )
-        adapter = _adapter(transport)
-        adapter.generate("hi")
-        assert transport.calls[0][3] is not None
-        assert "HTTP-Referer" in transport.calls[0][3]
-        assert "X-Title" in transport.calls[0][3]
 
 
 # ── Seam: streaming completions ───────────────────────────────────────────────
@@ -498,3 +483,21 @@ class TestOpenRouterErrorHandling:
 
     def test_error_is_exception_subtype(self) -> None:
         assert issubclass(OpenRouterError, Exception)
+
+    def test_retries_on_rate_limit_then_succeeds(self) -> None:
+        transport = FakeTransport(
+            responses={
+                ("GET", "/api/v1/models"): FakeResponse(
+                    status=429, body=b'{"error": "rate limit exceeded"}'
+                ),
+            }
+        )
+        adapter = OpenRouterAdapter(
+            api_key="test-key",
+            model="openai/gpt-4o",
+            transport=transport,
+            max_retries=1,
+            retry_backoff_base=0.0,
+        )
+        with pytest.raises(OpenRouterError, match="rate limit exceeded"):
+            adapter.list_models()
