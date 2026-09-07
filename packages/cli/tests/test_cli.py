@@ -101,7 +101,7 @@ def test_register_commands_registers_in_place() -> None:
     ("subcommand", "option_args", "expected"),
     [
         ("agent", ["--describe", "security"], "Agent: security"),
-        ("chat", ["--model", "ollama/llama3.1"], "Using model: ollama/llama3.1"),
+        ("chat", ["--model", "llama3.1"], "Using model manager with model: llama3.1"),
         ("collab", ["--channel", "backend"], "Channel: backend"),
         ("config", ["--get", "model"], "model ="),
         ("plugin", ["--install", "security-scan"], "Installing plugin: security-scan"),

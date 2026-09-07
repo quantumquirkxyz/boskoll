@@ -20,6 +20,9 @@ class ModelAdapter(ABC):
     stream response chunks as they are produced.
     """
 
+    model: str | None = None
+    """Model identifier override. When ``None`` the provider default applies."""
+
     @abstractmethod
     def list_models(self) -> list[str]:
         """Return the identifiers of the models this provider exposes.
