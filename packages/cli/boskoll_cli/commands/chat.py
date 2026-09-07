@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 import click
 
 from boskoll_cli.commands._help import command
-from boskoll_cli.models import ModelManager, OllamaAdapter, OpenRouterAdapter
+from boskoll_cli.models import (
+    ModelAdapter,
+    ModelManager,
+    OllamaAdapter,
+    OpenRouterAdapter,
+    OpenRouterError,
+)
 
 COMMAND_NAME = "chat"
 _GREETER = "Welcome to boskoll chat"
@@ -16,46 +22,50 @@ _PROMPT = "boskoll> "
 _EXIT_KEYWORDS = frozenset({"exit", "quit"})
 
 
+class _MissingOpenRouterAdapter(ModelAdapter):
+    """Fallback that raises when no OpenRouter API key is configured."""
+
+    def list_models(self) -> list[str]:
+        raise OpenRouterError("OpenRouter API key is required")
+
+    def generate(self, prompt: str, *, system: str | None = None) -> str:
+        raise OpenRouterError("OpenRouter API key is required")
+
+    def stream(self, prompt: str, *, system: str | None = None) -> Iterator[str]:
+        raise OpenRouterError("OpenRouter API key is required")
+        yield  # pragma: no cover
+
+
 def _build_model_manager(model: str | None) -> ModelManager | None:
     """Create a ModelManager from the ``--model`` flag value.
 
     Parsing rules:
 
-    * ``ollama/<name>`` — use Ollama only.
-    * ``openrouter/<name>`` — use OpenRouter only (requires ``OPENROUTER_API_KEY``).
+    * ``None`` — return ``None`` (no model forced).
     * ``<name>`` — use a ModelManager with Ollama primary + OpenRouter fallback,
       both configured with ``<name>``.
-    * ``None`` — return ``None`` (no model forced).
     """
     if model is None:
         return None
 
     model = model.strip()
-    if model.startswith("ollama/"):
-        name = model[len("ollama/") :]
-        return ModelManager(primary=OllamaAdapter(model=name), fallback=OllamaAdapter())
+    if not model:
+        return None
 
-    if model.startswith("openrouter/"):
-        name = model[len("openrouter/") :]
-        api_key = os.environ.get("OPENROUTER_API_KEY")
-        if not api_key:
-            raise click.ClickException(
-                "OPENROUTER_API_KEY environment variable is required for OpenRouter."
-            )
-        return ModelManager(
-            primary=OpenRouterAdapter(api_key=api_key, model=name),
-            fallback=OpenRouterAdapter(api_key=api_key),
-        )
+    primary = OllamaAdapter(model=model)
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if api_key:
+        fallback: ModelAdapter = OpenRouterAdapter(api_key=api_key)
+    else:
+        fallback = _MissingOpenRouterAdapter()
 
-    return ModelManager(
-        primary=OllamaAdapter(model=model),
-        fallback=OpenRouterAdapter(api_key=os.environ.get("OPENROUTER_API_KEY") or ""),
-    )
+    return ModelManager(primary=primary, fallback=fallback)
 
 
 def run_chat(
     input_fn: Callable[[], str],
     output_fn: Callable[[str], None],
+    model_manager: ModelManager | None = None,
 ) -> list[str]:
     """Run the interactive chat loop and return the session history.
 
@@ -66,6 +76,8 @@ def run_chat(
         end-of-input.
     output_fn:
         Called to write a line to the user.
+    model_manager:
+        Optional model manager used to generate responses for each prompt.
 
     Returns
     -------
@@ -86,13 +98,16 @@ def run_chat(
             break
         history.append(text)
         output_fn(f"{_PROMPT}{text}")
+        if model_manager is not None:
+            response = model_manager.generate(text)
+            output_fn(response)
     return history
 
 
 def build_command() -> click.Command:
     @command(
         "boskoll chat",
-        "boskoll chat --model ollama/llama3.1",
+        "boskoll chat --model llama3.1",
         "boskoll chat --system \"you are a senior python reviewer\"",
         "boskoll",
     )
@@ -101,7 +116,7 @@ def build_command() -> click.Command:
         "model",
         type=str,
         default=None,
-        help="Model to use for the session (e.g. ollama/llama3.1 or llama3.1).",
+        help="Model to use for the session (e.g. llama3.1).",
     )
     @click.option(
         "--system",
@@ -127,7 +142,7 @@ def build_command() -> click.Command:
             click.echo(f"Using model manager with model: {model}")
         if system_prompt:
             click.echo(f"System prompt: {system_prompt}")
-        history = run_chat(input_fn=input, output_fn=click.echo)
+        history = run_chat(input_fn=input, output_fn=click.echo, model_manager=manager)
         if history:
             click.echo("Session history:")
             for prompt in history:

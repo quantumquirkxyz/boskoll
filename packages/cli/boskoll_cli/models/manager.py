@@ -13,13 +13,8 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator
-from typing import Protocol
 
 from boskoll_cli.models.base import ModelAdapter
-
-
-class _ModelWithModel(Protocol):
-    model: str | None
 
 
 class ModelManagerError(Exception):
@@ -54,8 +49,8 @@ class ModelManager(ModelAdapter):
         self._fallback = fallback
         self._model = model
         if model is not None:
-            primary.model = model  # type: ignore[attr-defined]
-            fallback.model = model  # type: ignore[attr-defined]
+            primary.model = model
+            fallback.model = model
         self._logger = logger or logging.getLogger(__name__)
 
     def list_models(self) -> list[str]:

@@ -161,6 +161,6 @@ def test_chat_system_prompt_option(runner: click.testing.CliRunner) -> None:
 
 
 def test_chat_model_and_system_combine(runner: click.testing.CliRunner) -> None:
-    result = invoke(runner, ["chat", "--model", "ollama/llama3.1", "--system", "be concise"])
-    assert "Using model manager with model: ollama/llama3.1" in result.output
+    result = invoke(runner, ["chat", "--model", "llama3.1", "--system", "be concise"])
+    assert "Using model manager with model: llama3.1" in result.output
     assert "System prompt: be concise" in result.output

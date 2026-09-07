@@ -2,12 +2,80 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
+from typing import Any
+
 import click
 import click.testing
 import pytest
 
 from boskoll_cli import main
 from boskoll_cli.commands.chat import _GREETER, run_chat
+from boskoll_cli.models import ModelManager, ModelManagerError, OllamaAdapter
+from boskoll_cli.models.ollama import OllamaError
+
+
+@dataclass
+class FakeResponse:
+    status: int
+    body: bytes
+    headers: Mapping[str, str] = field(default_factory=dict)
+
+    def read(self) -> bytes:
+        return self.body
+
+    def info(self) -> Mapping[str, str]:
+        return self.headers
+
+    def __iter__(self) -> Iterator[bytes]:
+        yield from self.body.splitlines()
+
+
+@dataclass
+class FakeTransport:
+    responses: dict[tuple[str, str], FakeResponse] = field(default_factory=dict)
+    calls: list[tuple[str, str, Any]] = field(default_factory=list)
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: Mapping[str, Any] | None = None,
+    ) -> FakeResponse:
+        self.calls.append((method, path, body))
+        return self.responses[(method, path)]
+
+
+@dataclass
+class RaisingTransport:
+    error: Exception
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: Mapping[str, Any] | None = None,
+    ) -> Any:  # pragma: no cover - never returns
+        raise self.error
+
+
+def _make_manager(transport: FakeTransport, response_text: str = "model reply") -> ModelManager:
+    primary_transport = FakeTransport(
+        responses={
+            ("POST", "/api/generate"): FakeResponse(
+                status=200,
+                body=json.dumps({"response": response_text}).encode(),
+            )
+        }
+    )
+    return ModelManager(
+        primary=OllamaAdapter(model="llama3.1", transport=primary_transport),
+        fallback=OllamaAdapter(transport=transport),
+    )
 
 
 @pytest.fixture
@@ -133,3 +201,52 @@ class TestChatLoop:
         )
         greeter_line = [line for line in lines if _GREETER in line]
         assert len(greeter_line) == 1
+
+
+# ── Seam C: model manager integration ────────────────────────────────────────
+
+
+class TestChatLoopWithModelManager:
+    """run_chat uses the model manager to generate responses."""
+
+    def test_generate_response_appended_after_prompt(self) -> None:
+        manager = _make_manager(FakeTransport(), response_text="hello there")
+        lines: list[str] = []
+        prompts = iter(["hi", "exit"])
+        run_chat(
+            input_fn=lambda: next(prompts),
+            output_fn=lines.append,
+            model_manager=manager,
+        )
+        assert "boskoll> hi" in lines
+        assert "hello there" in lines
+
+    def test_no_model_manager_preserves_original_behavior(self) -> None:
+        lines: list[str] = []
+        prompts = iter(["hi", "exit"])
+        run_chat(
+            input_fn=lambda: next(prompts),
+            output_fn=lines.append,
+        )
+        assert "boskoll> hi" in lines
+        assert all("model" not in line.lower() for line in lines)
+
+    def test_model_manager_failure_propagates(self) -> None:
+        manager = ModelManager(
+            primary=OllamaAdapter(
+                model="llama3.1",
+                transport=RaisingTransport(OllamaError("down")),
+            ),
+            fallback=OllamaAdapter(
+                model="llama3.1",
+                transport=RaisingTransport(OllamaError("fallback down")),
+            ),
+        )
+        lines: list[str] = []
+        prompts = iter(["hi", "exit"])
+        with pytest.raises(ModelManagerError, match="Both providers failed generate"):
+            run_chat(
+                input_fn=lambda: next(prompts),
+                output_fn=lines.append,
+                model_manager=manager,
+            )
