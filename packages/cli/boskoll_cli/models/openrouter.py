@@ -212,8 +212,6 @@ class OpenRouterAdapter(ModelAdapter):
 
         return response
 
-        return response
-
     def _retry_rate_limited(
         self,
         method: str,
