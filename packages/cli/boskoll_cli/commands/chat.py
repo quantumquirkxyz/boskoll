@@ -2,16 +2,55 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 
 import click
 
 from boskoll_cli.commands._help import command
+from boskoll_cli.models import ModelManager, OllamaAdapter, OpenRouterAdapter
 
 COMMAND_NAME = "chat"
 _GREETER = "Welcome to boskoll chat"
 _PROMPT = "boskoll> "
 _EXIT_KEYWORDS = frozenset({"exit", "quit"})
+
+
+def _build_model_manager(model: str | None) -> ModelManager | None:
+    """Create a ModelManager from the ``--model`` flag value.
+
+    Parsing rules:
+
+    * ``ollama/<name>`` — use Ollama only.
+    * ``openrouter/<name>`` — use OpenRouter only (requires ``OPENROUTER_API_KEY``).
+    * ``<name>`` — use a ModelManager with Ollama primary + OpenRouter fallback,
+      both configured with ``<name>``.
+    * ``None`` — return ``None`` (no model forced).
+    """
+    if model is None:
+        return None
+
+    model = model.strip()
+    if model.startswith("ollama/"):
+        name = model[len("ollama/") :]
+        return ModelManager(primary=OllamaAdapter(model=name), fallback=OllamaAdapter())
+
+    if model.startswith("openrouter/"):
+        name = model[len("openrouter/") :]
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
+            raise click.ClickException(
+                "OPENROUTER_API_KEY environment variable is required for OpenRouter."
+            )
+        return ModelManager(
+            primary=OpenRouterAdapter(api_key=api_key, model=name),
+            fallback=OpenRouterAdapter(api_key=api_key),
+        )
+
+    return ModelManager(
+        primary=OllamaAdapter(model=model),
+        fallback=OpenRouterAdapter(api_key=os.environ.get("OPENROUTER_API_KEY") or ""),
+    )
 
 
 def run_chat(
@@ -62,7 +101,7 @@ def build_command() -> click.Command:
         "model",
         type=str,
         default=None,
-        help="Model to use for the session (e.g. ollama/llama3.1).",
+        help="Model to use for the session (e.g. ollama/llama3.1 or llama3.1).",
     )
     @click.option(
         "--system",
@@ -83,8 +122,9 @@ def build_command() -> click.Command:
         Use ``--model`` to pick a local or cloud model and ``--system`` to
         frame the assistant with a role or focus.
         """
-        if model:
-            click.echo(f"Using model: {model}")
+        manager = _build_model_manager(model)
+        if manager is not None:
+            click.echo(f"Using model manager with model: {model}")
         if system_prompt:
             click.echo(f"System prompt: {system_prompt}")
         history = run_chat(input_fn=input, output_fn=click.echo)
